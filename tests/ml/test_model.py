@@ -217,5 +217,5 @@ class TestModelPredictProbabilities:
         assert prob_low >= 0.5
         assert prob_high >= 0.5
 
-        # The classes should be different
-        assert label_low != label_high or prob_low == prob_high
+        # Predictions at extremes should be different classes
+        assert label_low != label_high
