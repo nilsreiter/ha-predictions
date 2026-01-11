@@ -10,6 +10,8 @@ from slugify import slugify
 from .const import CONF_FEATURE_ENTITY, CONF_TARGET_ENTITY, DOMAIN, LOGGER
 
 
+# TODO: Make options flow editable after initial setup, allow adding feature entities.
+#       Adding a feature entity resets the training data.
 class HAPredictionsFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
     """Config flow for HA Predictions."""
 
