@@ -10,7 +10,10 @@
             }
         },
         "error": {
-            "unknown": "Unknown error occurred."
+            "unknown": "Unknown error occurred.",
+            "target_entity_not_found": "Target entity does not exist in your Home Assistant instance.",
+            "target_entity_wrong_domain": "Target entity must be a light, switch, or input_boolean.",
+            "feature_entity_not_found": "One or more feature entities do not exist in your Home Assistant instance."
         },
         "abort": {
             "already_configured": "This entry is already configured."
