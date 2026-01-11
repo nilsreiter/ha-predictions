@@ -10,7 +10,7 @@ from homeassistant.core import callback
 from homeassistant.helpers import selector
 from slugify import slugify
 
-from .const import CONF_FEATURE_ENTITY, CONF_TARGET_ENTITY, DOMAIN
+from .const import CONF_FEATURE_ENTITY, CONF_TARGET_ENTITY, DOMAIN, OPT_FEATURES_CHANGED
 
 
 class HAPredictionsFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
@@ -89,7 +89,7 @@ class HAPredictionsOptionsFlowHandler(config_entries.OptionsFlow):
                 },
                 options={
                     **self.config_entry.options,
-                    "features_changed": features_changed,
+                    OPT_FEATURES_CHANGED: features_changed,
                 },
             )
 

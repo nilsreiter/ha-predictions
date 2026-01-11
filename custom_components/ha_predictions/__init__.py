@@ -23,6 +23,7 @@ from .const import (
     CONF_TARGET_ENTITY,
     DOMAIN,
     LOGGER,
+    OPT_FEATURES_CHANGED,
 )
 from .coordinator import HAPredictionUpdateCoordinator
 from .data import HAPredictionData
@@ -116,9 +117,9 @@ async def async_reload_entry(
 ) -> None:
     """Reload config entry."""
     # Check if we need to reset training data due to feature entity changes
-    if entry.options.get("features_changed", False):
-        # Delete the training data file
-        if hasattr(entry.runtime_data, "datafile"):
+    if entry.options.get(OPT_FEATURES_CHANGED, False):
+        # Delete the training data file if it exists
+        if entry.runtime_data and hasattr(entry.runtime_data, "datafile"):
             datafile = entry.runtime_data.datafile
             if datafile.exists():
                 LOGGER.info(
@@ -130,7 +131,7 @@ async def async_reload_entry(
         # Clear the features_changed flag after processing
         hass.config_entries.async_update_entry(
             entry,
-            options={**entry.options, "features_changed": False},
+            options={**entry.options, OPT_FEATURES_CHANGED: False},
         )
 
     await hass.config_entries.async_reload(entry.entry_id)
