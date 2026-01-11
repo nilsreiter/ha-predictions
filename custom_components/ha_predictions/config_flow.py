@@ -2,20 +2,29 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import voluptuous as vol
 from homeassistant import config_entries
+from homeassistant.core import callback
 from homeassistant.helpers import selector
 from slugify import slugify
 
-from .const import CONF_FEATURE_ENTITY, CONF_TARGET_ENTITY, DOMAIN, LOGGER
+from .const import CONF_FEATURE_ENTITY, CONF_TARGET_ENTITY, DOMAIN
 
 
-# TODO: Make options flow editable after initial setup, allow adding feature entities.
-#       Adding a feature entity resets the training data.
 class HAPredictionsFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
     """Config flow for HA Predictions."""
 
     VERSION = 2
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(
+        config_entry: config_entries.ConfigEntry,
+    ) -> HAPredictionsOptionsFlowHandler:
+        """Get the options flow for this handler."""
+        return HAPredictionsOptionsFlowHandler(config_entry)
 
     async def async_step_user(
         self,
@@ -51,4 +60,58 @@ class HAPredictionsFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 },
             ),
             errors=_errors,
+        )
+
+
+class HAPredictionsOptionsFlowHandler(config_entries.OptionsFlow):
+    """Handle options flow for HA Predictions."""
+
+    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
+        """Initialize options flow."""
+        self.config_entry = config_entry
+
+    async def async_step_init(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.ConfigFlowResult:
+        """Manage the options."""
+        if user_input is not None:
+            # Check if feature entities have changed
+            old_features = set(self.config_entry.data.get(CONF_FEATURE_ENTITY, []))
+            new_features = set(user_input.get(CONF_FEATURE_ENTITY, []))
+
+            # Update the config entry with new options
+            self.hass.config_entries.async_update_entry(
+                self.config_entry,
+                data={
+                    **self.config_entry.data,
+                    CONF_FEATURE_ENTITY: user_input[CONF_FEATURE_ENTITY],
+                },
+            )
+
+            # If feature entities changed, we need to reset training data
+            if old_features != new_features:
+                # Signal that data needs to be reset
+                # This will be handled in async_reload_entry
+                return self.async_create_entry(
+                    title="",
+                    data={"features_changed": True},
+                )
+
+            return self.async_create_entry(title="", data={})
+
+        # Get current feature entities from config entry
+        current_features = self.config_entry.data.get(CONF_FEATURE_ENTITY, [])
+
+        return self.async_show_form(
+            step_id="init",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(
+                        CONF_FEATURE_ENTITY,
+                        default=current_features,
+                    ): selector.EntitySelector(
+                        selector.EntitySelectorConfig(multiple=True),
+                    ),
+                }
+            ),
         )
