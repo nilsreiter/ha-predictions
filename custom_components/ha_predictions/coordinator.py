@@ -69,21 +69,43 @@ class HAPredictionUpdateCoordinator(DataUpdateCoordinator):
         # Only act if state actually changed
         if old_state and new_state and old_state.state != new_state.state:
             self.logger.info("Detecting changed states, storing current instance.")
-            self.collect()
-            if self.model.prediction_ready and self.dataset is not None:
-                self.logger.info("Making new prediction after state change.")
-                instance_data = pd.DataFrame(
-                    columns=self.dataset.columns[:-1],
-                    data=[self._get_states_for_entities(include_target=False)],
-                )
-                self.logger.debug(
-                    "Instance data for prediction: %s", str(instance_data)
-                )
-                pred = self.model.predict(instance_data)
-                if pred is not None:
-                    self.current_prediction = pred
-                    self.logger.info("New prediction: %s", str(self.current_prediction))
-                    [e.notify(MSG_PREDICTION_MADE) for e in self.entity_registry]
+            # Schedule data collection and prediction in executor to avoid
+            # blocking event loop
+            self.hass.async_add_executor_job(self._collect_and_predict)
+
+    def _collect_and_predict(self) -> None:
+        """
+        Collect data and make prediction.
+
+        Runs in executor to avoid blocking event loop.
+        """
+        # Collect the current state
+        self.collect()
+
+        # Make prediction if model is ready
+        if self.model.prediction_ready and self.dataset is not None:
+            self.logger.info("Making new prediction after state change.")
+            self._make_prediction()
+
+    def _make_prediction(self) -> None:
+        """
+        Make a prediction.
+
+        Runs in executor to avoid blocking event loop.
+        """
+        if self.dataset is None:
+            return
+
+        instance_data = pd.DataFrame(
+            columns=self.dataset.columns[:-1],
+            data=[self._get_states_for_entities(include_target=False)],
+        )
+        self.logger.debug("Instance data for prediction: %s", str(instance_data))
+        pred = self.model.predict(instance_data)
+        if pred is not None:
+            self.current_prediction = pred
+            self.logger.info("New prediction: %s", str(self.current_prediction))
+            [e.notify(MSG_PREDICTION_MADE) for e in self.entity_registry]
 
     def _initialize_dataframe(self) -> NoneType:
         """Initialize empty dataframe for dataset."""
