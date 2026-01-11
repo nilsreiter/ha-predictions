@@ -122,6 +122,7 @@ class HAPredictionUpdateCoordinator(DataUpdateCoordinator):
             ]
         return features
 
+    # TODO: Check that this doesn't block the event loop
     def read_table(self) -> NoneType:
         """Read dataset from file."""
         self.logger.info(
@@ -135,7 +136,9 @@ class HAPredictionUpdateCoordinator(DataUpdateCoordinator):
             self.dataset_size = self.dataset.shape[0]
             [e.notify(MSG_DATASET_CHANGED) for e in self.entity_registry]
 
-    def store_table(self, df: pd.DataFrame | NoneType) -> NoneType:
+    # TODO: handle possible IO errors
+    # TODO: storing on disk should happend regularly in the background
+    def store_table(self, df: pd.DataFrame | NoneType) -> None:
         """Store dataset to file."""
         self.config_entry.runtime_data.datafile.parent.mkdir(
             parents=True, exist_ok=True
