@@ -28,5 +28,3 @@ class HAPredictionData:
     datafile: Path
     device_info: DeviceInfo
     unsubscribe: list[Callable]
-    # target_entity: str
-    # feature_entities: list[str]
