@@ -89,11 +89,13 @@ class HAPredictionsFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
 
+# TODO: Fix "AttributeError: property 'config_entry' of 'HAPredictionsOptionsFlowHandler' object has no setter"
 class HAPredictionsOptionsFlowHandler(config_entries.OptionsFlow):
     """Handle options flow for HA Predictions."""
 
     def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
         """Initialize options flow."""
+        # TODO: Fix the type annotation below
         self.config_entry = config_entry
 
     async def async_step_init(
