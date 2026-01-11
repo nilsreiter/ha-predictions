@@ -152,8 +152,8 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for more details on contributing.
 
 ## Support
 
-- [Report bugs and request features](https://github.com/nilsreiter/ml/issues)
-- [Documentation](https://github.com/nilsreiter/ml)
+- [Report bugs and request features](https://github.com/nilsreiter/ha_predictions/issues)
+- [Documentation](https://github.com/nilsreiter/ha_predictions)
 
 ## License
 
