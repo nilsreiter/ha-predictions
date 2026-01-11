@@ -78,24 +78,20 @@ class HAPredictionsOptionsFlowHandler(config_entries.OptionsFlow):
             # Check if feature entities have changed
             old_features = set(self.config_entry.data.get(CONF_FEATURE_ENTITY, []))
             new_features = set(user_input.get(CONF_FEATURE_ENTITY, []))
+            features_changed = old_features != new_features
 
-            # Update the config entry with new options
+            # Update the config entry with new data
             self.hass.config_entries.async_update_entry(
                 self.config_entry,
                 data={
                     **self.config_entry.data,
                     CONF_FEATURE_ENTITY: user_input[CONF_FEATURE_ENTITY],
                 },
+                options={
+                    **self.config_entry.options,
+                    "features_changed": features_changed,
+                },
             )
-
-            # If feature entities changed, we need to reset training data
-            if old_features != new_features:
-                # Signal that data needs to be reset
-                # This will be handled in async_reload_entry
-                return self.async_create_entry(
-                    title="",
-                    data={"features_changed": True},
-                )
 
             return self.async_create_entry(title="", data={})
 

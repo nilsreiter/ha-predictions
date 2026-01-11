@@ -116,15 +116,21 @@ async def async_reload_entry(
 ) -> None:
     """Reload config entry."""
     # Check if we need to reset training data due to feature entity changes
-    if hasattr(entry.runtime_data, "datafile") and entry.options.get(
-        "features_changed", False
-    ):
+    if entry.options.get("features_changed", False):
         # Delete the training data file
-        datafile = entry.runtime_data.datafile
-        if datafile.exists():
-            LOGGER.info(
-                "Feature entities changed, deleting training data file: %s", datafile
-            )
-            await hass.async_add_executor_job(datafile.unlink)
+        if hasattr(entry.runtime_data, "datafile"):
+            datafile = entry.runtime_data.datafile
+            if datafile.exists():
+                LOGGER.info(
+                    "Feature entities changed, deleting training data file: %s",
+                    datafile,
+                )
+                await hass.async_add_executor_job(datafile.unlink)
+
+        # Clear the features_changed flag after processing
+        hass.config_entries.async_update_entry(
+            entry,
+            options={**entry.options, "features_changed": False},
+        )
 
     await hass.config_entries.async_reload(entry.entry_id)
