@@ -2,20 +2,28 @@
     "config": {
         "step": {
             "user": {
-                "description": "If you need help with the configuration have a look here: https://github.com/ludeeus/integration_blueprint",
+                "description": "Configure HA Predictions integration. Select a target entity to predict and feature entities to use for prediction.",
                 "data": {
-                    "username": "Username",
-                    "password": "Password"
+                    "CONF_TARGET_ENTITY": "Target Entity",
+                    "CONF_FEATURE_ENTITY": "Feature Entities"
                 }
             }
         },
         "error": {
-            "auth": "Username/Password is wrong.",
-            "connection": "Unable to connect to the server.",
             "unknown": "Unknown error occurred."
         },
         "abort": {
             "already_configured": "This entry is already configured."
+        }
+    },
+    "options": {
+        "step": {
+            "init": {
+                "description": "Update feature entities for prediction. Note: Changing feature entities will reset your training data.",
+                "data": {
+                    "CONF_FEATURE_ENTITY": "Feature Entities"
+                }
+            }
         }
     }
 }
