@@ -9,7 +9,6 @@
   "iot_class": "calculated",
   "issue_tracker": "https://github.com/nilsreiter/ml/issues",
   "requirements": [
-    "keras",
     "pandas",
     "numpy"
   ],
