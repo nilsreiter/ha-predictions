@@ -3,7 +3,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from os import uname
+from typing import TYPE_CHECKING, Callable
+
+from yaml import unsafe_load
+
+from custom_components.ha_predictions.entity import DeviceInfo
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -24,5 +29,7 @@ class HAPredictionData:
     coordinator: HAPredictionUpdateCoordinator
     integration: Integration
     datafile: Path
+    device_info: DeviceInfo
+    unsubscribe: list[Callable]
     # target_entity: str
     # feature_entities: list[str]

@@ -2,11 +2,19 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from types import NoneType
+from typing import TYPE_CHECKING, Union
 
 from homeassistant.components.sensor import SensorEntity, SensorEntityDescription
 
-from .const import ET_PERFORMANCE_SENSOR, MSG_TRAINING_DONE, MSG_DATASET_CHANGED
+from .const import (
+    CONF_FEATURE_ENTITY,
+    ET_PERFORMANCE_SENSOR,
+    MSG_PREDICTION_MADE,
+    MSG_TRAINING_DONE,
+    MSG_DATASET_CHANGED,
+    MIN_DATASET_SIZE,
+)
 from .entity import HAPredictionEntity
 
 if TYPE_CHECKING:
@@ -44,6 +52,14 @@ async def async_setup_entry(
                     suggested_display_precision=0,
                 ),
             ),
+            CurrentPredictionSensor(
+                coordinator=entry.runtime_data.coordinator,
+                entity_description=SensorEntityDescription(
+                    key="current_prediction",
+                    name="Current Prediction",
+                    icon="mdi:lightbulb-on",
+                ),
+            ),
         ]
     )
 
@@ -70,8 +86,65 @@ class DatasetSensor(HAPredictionEntity, SensorEntity):
     def should_poll(self) -> bool:
         return False
 
+    @property
+    def extra_state_attributes(self) -> dict[str, str | list | float | NoneType]:
+        """Return the state attributes of the sensor."""
+        return {
+            "minimal_dataset_size": MIN_DATASET_SIZE,
+            "feature_entities": list(
+                self.coordinator.config_entry.data.get(CONF_FEATURE_ENTITY, [])
+            ),
+        }
+
     def notify(self, msg: str) -> None:
         if msg is MSG_DATASET_CHANGED:
+            self.schedule_update_ha_state()
+
+
+class CurrentPredictionSensor(HAPredictionEntity, SensorEntity):
+    prediction_label: str | NoneType = None
+    prediction_probability: float | NoneType = None
+
+    def __init__(
+        self,
+        coordinator: HAPredictionUpdateCoordinator,
+        entity_description: SensorEntityDescription,
+    ):
+        super().__init__(coordinator)
+        self.entity_description = entity_description
+        self._attr_unique_id = (
+            self.coordinator.config_entry.entry_id + "-current-prediction"
+        )
+        coordinator.register(self)
+
+    @property
+    def native_value(self) -> str | None:
+        """Return the native value of the sensor."""
+        # Implement logic to return the current prediction value
+        return self.prediction_label
+
+    @property
+    def extra_state_attributes(self) -> dict[str, float | NoneType]:
+        """Return the state attributes of the sensor."""
+        return {
+            "probability": self.prediction_probability,
+        }
+
+    @property
+    def available(self) -> bool:
+        return self.prediction_label is not None
+
+    @property
+    def should_poll(self) -> bool:
+        return False
+
+    def notify(self, msg: str) -> None:
+        if (
+            msg is MSG_PREDICTION_MADE
+            and self.coordinator.current_prediction is not None
+        ):
+            self.prediction_label = self.coordinator.current_prediction[0]
+            self.prediction_probability = self.coordinator.current_prediction[1]
             self.schedule_update_ha_state()
 
 

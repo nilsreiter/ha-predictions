@@ -48,15 +48,23 @@ class LogisticRegression:
             self.weights -= self.lr * dw
             self.bias -= self.lr * db
 
-    def predict(self, x: np.ndarray) -> np.ndarray | NoneType:
+    def predict(
+        self, x: np.ndarray
+    ) -> tuple[np.ndarray, np.ndarray] | tuple[NoneType, NoneType]:
+        """
+        Make predictions and return classes and probabilities.
+
+        Returns:
+            tuple: (predicted_classes, probabilities) or None
+        """
         if self.weights is not None:
             threshold = 0.5
             y_hat = np.dot(x, self.weights) + self.bias
-            y_predicted = self._sigmoid(y_hat)
-            y_predicted_cls = [1 if i > threshold else 0 for i in y_predicted]
+            y_predicted = self._sigmoid(y_hat)  # Probabilities
+            y_predicted_cls = np.array([1 if i > threshold else 0 for i in y_predicted])
 
-            return np.array(y_predicted_cls)
-        return None
+            return y_predicted_cls, y_predicted
+        return (None, None)
 
     def score(self, x: np.ndarray, y_gold: np.ndarray) -> float:
         y_pred = self.predict(x)

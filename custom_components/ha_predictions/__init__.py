@@ -16,12 +16,23 @@ from homeassistant.core import callback
 from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.loader import async_get_loaded_integration
 
-from .const import CONF_FEATURE_ENTITY, CONF_TARGET_ENTITY, DOMAIN, LOGGER
+from custom_components.ha_predictions.entity import DeviceInfo
+
+from .const import (
+    CONF_FEATURE_ENTITY,
+    CONF_TARGET_ENTITY,
+    DOMAIN,
+    LOGGER,
+)
 from .coordinator import HAPredictionUpdateCoordinator
 from .data import HAPredictionData
 
 if TYPE_CHECKING:
-    from homeassistant.core import Event, EventStateChangedData, HomeAssistant
+    from homeassistant.core import (
+        Event,
+        EventStateChangedData,
+        HomeAssistant,
+    )
 
     from .data import HAPredictionConfigEntry
 
@@ -46,14 +57,6 @@ async def async_setup_entry(
         name=DOMAIN,
         update_interval=timedelta(hours=1),
     )
-    entry.runtime_data = HAPredictionData(
-        integration=async_get_loaded_integration(hass, entry.domain),
-        coordinator=coordinator,
-        datafile=Path(hass.config.config_dir, DOMAIN, entry.entry_id + ".csv"),
-    )
-    await hass.async_add_executor_job(coordinator.read_table)
-    await coordinator.async_config_entry_first_refresh()
-    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     entities_for_subscription = [entry.data[CONF_TARGET_ENTITY]] + entry.data[
         CONF_FEATURE_ENTITY
@@ -67,7 +70,33 @@ async def async_setup_entry(
         hass, entity_ids=entities_for_subscription, action=state_changed
     )
 
+    target_entity_state = hass.states.get(entry.data[CONF_TARGET_ENTITY])
+    if target_entity_state is not None:
+        suggested_area = target_entity_state.attributes.get("area_id")
+    else:
+        suggested_area = None
+    entry.runtime_data = HAPredictionData(
+        integration=async_get_loaded_integration(hass, entry.domain),
+        coordinator=coordinator,
+        datafile=Path(hass.config.config_dir, DOMAIN, entry.entry_id + ".csv"),
+        unsubscribe=[unsub],
+        device_info=DeviceInfo(
+            identifiers={(DOMAIN, entry.entry_id)},
+            name=f"HA Predictions {entry.title}",
+            manufacturer="Nils Reiter",
+            model="HA Predictions Integration",
+            suggested_area=suggested_area,
+        ),
+    )
+    await hass.async_add_executor_job(coordinator.read_table)
+    await coordinator.async_config_entry_first_refresh()
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+
     entry.async_on_unload(entry.add_update_listener(async_reload_entry))
+    LOGGER.info("Setup complete")
+    LOGGER.debug(
+        "Subscribed to state changes for entities: %s", entities_for_subscription
+    )
     return True
 
 
@@ -76,6 +105,8 @@ async def async_unload_entry(
     entry: HAPredictionConfigEntry,
 ) -> bool:
     """Handle removal of an entry."""
+    [unsub() for unsub in entry.runtime_data.unsubscribe]
+    entry.runtime_data.coordinator.remove_listeners()
     return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
 
 

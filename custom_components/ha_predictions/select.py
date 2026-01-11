@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from homeassistant.components.select import SelectEntity, SelectEntityDescription
+from propcache import cached_property
 
 from .const import OP_MODE_PROD, OP_MODE_TRAIN
 from .entity import HAPredictionEntity
@@ -36,8 +37,7 @@ async def async_setup_entry(
 
 
 class SelectModeEntity(HAPredictionEntity, SelectEntity):
-    _attr_options: list[str] = ["Training", "Application"]
-    _attr_current_option: str = "Training"
+    _attr_options: list[str] = [OP_MODE_TRAIN, OP_MODE_PROD]
 
     def __init__(
         self,
@@ -46,10 +46,22 @@ class SelectModeEntity(HAPredictionEntity, SelectEntity):
     ):
         super().__init__(coordinator)
         self.entity_description = entity_description
+        self.coordinator.register(self)
+
+    @cached_property
+    def unique_id(self) -> str | None:
+        return self.coordinator.config_entry.entry_id + "-select-operation-mode"
+
+    @property
+    def current_option(self) -> str:
+        """Return the current option."""
+        return self.coordinator.operation_mode
+
+    @property
+    def available(self) -> bool:
+        return True
 
     async def async_select_option(self, option: str) -> None:
         """Change the selected option."""
-        if option == self._attr_options[0]:
-            self.coordinator.set_operation_mode(OP_MODE_TRAIN)
-        elif option == self._attr_options[1]:
-            self.coordinator.set_operation_mode(OP_MODE_PROD)
+        self.coordinator.set_operation_mode(option)
+        self.schedule_update_ha_state()
