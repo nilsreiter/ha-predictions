@@ -2,7 +2,7 @@
 Custom integration to integrate integration_blueprint with Home Assistant.
 
 For more details about this integration, please refer to
-https://github.com/nilsreiter/ml
+https://github.com/nilsreiter/ha_predictions
 """
 
 from __future__ import annotations
