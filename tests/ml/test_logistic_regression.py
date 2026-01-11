@@ -1,18 +1,18 @@
 """Unit tests for LogisticRegression class."""
 
-import os
 import sys
+from pathlib import Path
 
 import numpy as np
 
 # Add the ml directory to the path to avoid importing homeassistant dependencies
-ml_path = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
-    "custom_components",
-    "ha_predictions",
-    "ml",
+ml_path = (
+    Path(__file__).parent.parent.parent
+    / "custom_components"
+    / "ha_predictions"
+    / "ml"
 )
-sys.path.insert(0, ml_path)
+sys.path.insert(0, str(ml_path))
 
 from LogisticRegression import LogisticRegression  # noqa: E402
 
@@ -136,7 +136,8 @@ class TestFit:
         model.fit(x, y)
         assert model.weights is not None
         assert len(model.weights) == 2
-        assert model.bias != 0 or model.bias == 0  # bias is set (could be 0)
+        # Bias should be a float (could be any value including 0)
+        assert isinstance(model.bias, float)
 
     def test_fit_records_losses(self) -> None:
         """Test that fit records loss values during training."""
