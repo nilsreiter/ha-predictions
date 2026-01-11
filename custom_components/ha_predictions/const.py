@@ -1,14 +1,10 @@
 """Constants for integration_blueprint."""
 
-from ctypes.wintypes import MSG
 from logging import Logger, getLogger
-from re import M
 
 LOGGER: Logger = getLogger(__package__)
 DOMAIN = "ha_predictions"
 ATTRIBUTION = "Data provided by http://jsonplaceholder.typicode.com/"
-
-ACTION_DATA_ENTITY_ID = "entity_id"
 
 CONF_TARGET_ENTITY = "CONF_TARGET_ENTITY"
 CONF_FEATURE_ENTITY = "CONF_FEATURE_ENTITY"
