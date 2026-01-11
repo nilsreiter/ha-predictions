@@ -3,6 +3,11 @@ from types import NoneType
 import numpy as np
 
 
+# TODO: Add multi-class support
+# TODO: Add regularization
+# TODO: Add better convergence checks
+# TODO: Optimize performance with vectorized operations, but without introducing additional dependencies
+# TODO: Add unit tests
 class LogisticRegression:
     weights: np.ndarray | NoneType = None
     bias: float = 0
