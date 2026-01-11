@@ -53,7 +53,11 @@ class Model:
         ):  # Changed from prediction_codes to predictions
             target_categories = self.factors[self.target_column]
             label = target_categories[predictions[0]]
-            probability = probabilities[0]  # Probability of the predicted class
+            # Sigmoid output represents P(class=1), adjust for class 0
+            # If predicted class is 0, probability should be 1 - sigmoid_output
+            probability = (
+                probabilities[0] if predictions[0] == 1 else 1 - probabilities[0]
+            )
             return (label, probability)
         return None
 
