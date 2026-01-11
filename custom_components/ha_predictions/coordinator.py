@@ -71,41 +71,87 @@ class HAPredictionUpdateCoordinator(DataUpdateCoordinator):
             self.logger.info("Detecting changed states, storing current instance.")
             # Schedule data collection and prediction in executor to avoid
             # blocking event loop
-            self.hass.async_add_executor_job(self._collect_and_predict)
+            self.hass.async_create_task(self._async_collect_and_predict())
 
-    def _collect_and_predict(self) -> None:
+    async def _async_collect_and_predict(self) -> None:
         """
         Collect data and make prediction.
 
-        Runs in executor to avoid blocking event loop.
+        Runs blocking operations in executor to avoid blocking event loop.
         """
-        # Collect the current state
-        self.collect()
+        # Run blocking operations in executor
+        await self.hass.async_add_executor_job(self._collect_data)
+
+        # Notify entities on main event loop
+        for entity in self.entity_registry:
+            entity.notify(MSG_DATASET_CHANGED)
 
         # Make prediction if model is ready
         if self.model.prediction_ready and self.dataset is not None:
             self.logger.info("Making new prediction after state change.")
-            self._make_prediction()
+            await self._async_make_prediction()
 
-    def _make_prediction(self) -> None:
+    async def async_collect(self) -> None:
+        """
+        Collect the current state as a new data point.
+
+        This is an async wrapper that runs blocking operations in executor.
+        """
+        # Run blocking operations in executor
+        await self.hass.async_add_executor_job(self._collect_data)
+
+        # Notify entities on main event loop
+        for entity in self.entity_registry:
+            entity.notify(MSG_DATASET_CHANGED)
+
+    def _collect_data(self) -> None:
+        """
+        Collect the current state (blocking operations).
+
+        Runs in executor to avoid blocking event loop.
+        """
+        xy = self._get_states_for_entities()
+        if self.dataset is None:
+            self._initialize_dataframe()
+        if self.dataset is not None:
+            self.dataset.loc[len(self.dataset)] = xy
+            self.dataset_size = self.dataset.shape[0]
+            self.logger.info(self.dataset)
+        self.training_ready = self.dataset_size >= MIN_DATASET_SIZE
+
+    async def _async_make_prediction(self) -> None:
         """
         Make a prediction.
+
+        Runs blocking operations in executor to avoid blocking event loop.
+        """
+        # Run blocking operations in executor
+        prediction = await self.hass.async_add_executor_job(
+            self._compute_prediction
+        )
+
+        # Update state and notify entities on main event loop
+        if prediction is not None:
+            self.current_prediction = prediction
+            self.logger.info("New prediction: %s", str(self.current_prediction))
+            for entity in self.entity_registry:
+                entity.notify(MSG_PREDICTION_MADE)
+
+    def _compute_prediction(self) -> tuple[str, float] | None:
+        """
+        Compute prediction (blocking operations).
 
         Runs in executor to avoid blocking event loop.
         """
         if self.dataset is None:
-            return
+            return None
 
         instance_data = pd.DataFrame(
             columns=self.dataset.columns[:-1],
             data=[self._get_states_for_entities(include_target=False)],
         )
         self.logger.debug("Instance data for prediction: %s", str(instance_data))
-        pred = self.model.predict(instance_data)
-        if pred is not None:
-            self.current_prediction = pred
-            self.logger.info("New prediction: %s", str(self.current_prediction))
-            [e.notify(MSG_PREDICTION_MADE) for e in self.entity_registry]
+        return self.model.predict(instance_data)
 
     def _initialize_dataframe(self) -> NoneType:
         """Initialize empty dataframe for dataset."""
@@ -164,18 +210,6 @@ class HAPredictionUpdateCoordinator(DataUpdateCoordinator):
         )
         if df is not None:
             df.to_csv(self.config_entry.runtime_data.datafile, index=False)
-
-    def collect(self) -> NoneType:
-        """Collect the current situation as a new data point."""
-        xy = self._get_states_for_entities()
-        if self.dataset is None:
-            self._initialize_dataframe()
-        if self.dataset is not None:
-            self.dataset.loc[len(self.dataset)] = xy
-            self.dataset_size = self.dataset.shape[0]
-            self.logger.info(self.dataset)
-        [e.notify(MSG_DATASET_CHANGED) for e in self.entity_registry]
-        self.training_ready = self.dataset_size >= MIN_DATASET_SIZE
 
     async def train(self) -> NoneType:
         """Run the training process."""

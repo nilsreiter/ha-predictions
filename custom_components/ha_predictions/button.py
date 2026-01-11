@@ -61,7 +61,7 @@ class StoreInstanceButton(HAPredictionEntity, ButtonEntity):
 
     async def async_press(self) -> None:
         """Handle the button press."""
-        self.coordinator.collect()
+        await self.coordinator.async_collect()
 
     @cached_property
     def unique_id(self) -> str | None:
