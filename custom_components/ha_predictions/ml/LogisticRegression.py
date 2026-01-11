@@ -8,6 +8,7 @@ import numpy as np
 # TODO: Add better convergence checks
 # TODO: Optimize performance with vectorized operations, but without introducing additional dependencies
 # TODO: Add unit tests
+# TODO: Deal with missing data (gracefully handle NaNs)
 class LogisticRegression:
     weights: np.ndarray | NoneType = None
     bias: float = 0
