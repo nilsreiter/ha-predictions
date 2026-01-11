@@ -79,6 +79,7 @@ class HAPredictionsFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                             filter=[{"domain": ["light", "switch", "input_boolean"]}]
                         ),
                     ),
+                    # TODO: Allow use of entity attributes as features
                     vol.Required(CONF_FEATURE_ENTITY): selector.EntitySelector(
                         selector.EntitySelectorConfig(multiple=True),
                     ),
