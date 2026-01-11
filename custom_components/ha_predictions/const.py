@@ -4,7 +4,6 @@ from logging import Logger, getLogger
 
 LOGGER: Logger = getLogger(__package__)
 DOMAIN = "ha_predictions"
-ATTRIBUTION = "Data provided by http://jsonplaceholder.typicode.com/"
 
 ACTION_DATA_ENTITY_ID = "entity_id"
 
