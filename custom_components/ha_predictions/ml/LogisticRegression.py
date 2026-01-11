@@ -1,3 +1,5 @@
+"""Logistic Regression Classifier Implementation."""
+
 from types import NoneType
 
 import numpy as np
@@ -9,10 +11,13 @@ import numpy as np
 # TODO: Optimize performance with vectorized operations, but without introducing additional dependencies
 # TODO: Deal with missing data (gracefully handle NaNs)
 class LogisticRegression:
+    """Logistic Regression Classifier."""
+
     weights: np.ndarray | NoneType = None
     bias: float = 0
 
-    def __init__(self, learning_rate: float = 0.001, n_iters: int = 1000):
+    def __init__(self, learning_rate: float = 0.001, n_iters: int = 1000) -> None:
+        """Initialize the Logistic Regression model."""
         self.lr = learning_rate
         self.n_iters = n_iters
         self.losses: list[float] = []
@@ -28,13 +33,14 @@ class LogisticRegression:
         y2 = (1 - y_true) * np.log(1 - y_pred + epsilon)
         return float(-np.mean(y1 + y2))
 
-    def _feed_forward(self, x: np.ndarray):
+    def _feed_forward(self, x: np.ndarray) -> np.ndarray | NoneType:
         if self.weights is not None:
             z = np.dot(x, self.weights) + self.bias
             return self._sigmoid(z)
         return None
 
     def fit(self, x: np.ndarray, y: np.ndarray) -> NoneType:
+        """Train the Logistic Regression model."""
         n_samples, n_features = x.shape
 
         # init parameters
@@ -73,6 +79,7 @@ class LogisticRegression:
         return (None, None)
 
     def score(self, x: np.ndarray, y_gold: np.ndarray) -> float:
+        """Calculate accuracy of the model."""
         y_pred_classes, _ = self.predict(x)
         matches = (y_gold == y_pred_classes).sum()
         total = len(y_gold)

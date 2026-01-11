@@ -1,3 +1,5 @@
+"""ML Model management."""
+
 from logging import Logger
 from types import NoneType
 from typing import Any
@@ -18,7 +20,8 @@ class Model:
     target_column: str | None = None
     prediction_ready: bool = False
 
-    def __init__(self, logger: Logger):
+    def __init__(self, logger: Logger) -> None:
+        """Initialize the Model class."""
         self.logger = logger
 
     def predict(self, data: pd.DataFrame) -> tuple[str, float] | NoneType:
@@ -55,20 +58,12 @@ class Model:
         return None
 
     def train_final(self, data: pd.DataFrame, target_col: str | None = None) -> None:
-        """
-        Train the model.
-
-        Parameters
-        ----------
-        - data: DataFrame with features and target
-        - target_col: Name of target column (if None, assumes last column)
-
-        """
+        """Train the final model."""
         data_copy = data.copy()
 
         # Determine target column
         if target_col is None:
-            self.target_column = data_copy.columns[-1]
+            self.target_column = data_copy.columns.tolist()[-1]
         else:
             self.target_column = target_col
 
@@ -91,6 +86,7 @@ class Model:
         self.prediction_ready = True
 
     def train_eval(self, df: pd.DataFrame) -> NoneType:
+        """Train and evaluate the model with train/test split."""
         self.logger.info("Starting training for evaluation with data: %s", str(df))
         categories = {}
         for col in df.select_dtypes(include=["object"]).columns:
@@ -117,10 +113,7 @@ class Model:
             n_cls = len(cls_indices)
             # Ensure at least 1 test sample per class if there are 2+ samples
             # For single-sample classes, put in training to avoid empty training sets
-            if n_cls >= 2:
-                test_size_cls = max(int(n_cls * 0.25), 1)
-            else:
-                test_size_cls = 0
+            test_size_cls = max(int(n_cls * 0.25), 1) if n_cls >= 2 else 0
 
             test_indices.extend(cls_indices[:test_size_cls])
             train_indices.extend(cls_indices[test_size_cls:])
