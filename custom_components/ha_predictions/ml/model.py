@@ -45,8 +45,6 @@ class Model:
         x_pred = data_copy.to_numpy()
         predictions, probabilities = self.model_final.predict(x_pred)
 
-        # TODO: Check if probabilities correspond to predicted class and if predicted class is correct. Maybe probabilities need to be adjusted.
-        # Decode to original values and get probability for predicted class
         if (
             self.target_column in self.factors
             and predictions is not None
