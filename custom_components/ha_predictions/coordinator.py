@@ -35,14 +35,19 @@ class HAPredictionUpdateCoordinator(DataUpdateCoordinator):
     """Class to manage training/testing the model."""
 
     config_entry: HAPredictionConfigEntry
-    accuracy: float | NoneType = None
-    entity_registry: list[HAPredictionEntity] = []
-    dataset: pd.DataFrame | NoneType = None
-    dataset_size: int = 0
-    model: Model = Model(LOGGER)
-    operation_mode: str = OP_MODE_TRAIN
-    training_ready: bool = False
-    current_prediction: tuple[str, float] | NoneType = None
+
+    def __init__(self, *args, **kwargs) -> None:
+        """Initialize the coordinator."""
+        super().__init__(*args, **kwargs)
+        # Initialize instance variables to avoid sharing between coordinator instances
+        self.accuracy: float | NoneType = None
+        self.entity_registry: list[HAPredictionEntity] = []
+        self.dataset: pd.DataFrame | NoneType = None
+        self.dataset_size: int = 0
+        self.model: Model = Model(self.logger)
+        self.operation_mode: str = OP_MODE_TRAIN
+        self.training_ready: bool = False
+        self.current_prediction: tuple[str, float] | NoneType = None
 
     async def _async_update_data(self) -> Any:
         """Update data via library."""
