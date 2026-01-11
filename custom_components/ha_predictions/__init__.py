@@ -119,14 +119,16 @@ async def async_reload_entry(
     # Check if we need to reset training data due to feature entity changes
     if entry.options.get(OPT_FEATURES_CHANGED, False):
         # Delete the training data file if it exists
-        if entry.runtime_data and hasattr(entry.runtime_data, "datafile"):
+        if entry.runtime_data:
             datafile = entry.runtime_data.datafile
-            if datafile.exists():
-                LOGGER.info(
-                    "Feature entities changed, deleting training data file: %s",
-                    datafile,
-                )
-                await hass.async_add_executor_job(datafile.unlink)
+            LOGGER.info(
+                "Feature entities changed, deleting training data file: %s",
+                datafile,
+            )
+            # Use lambda to pass missing_ok parameter
+            await hass.async_add_executor_job(
+                lambda: datafile.unlink(missing_ok=True)
+            )
 
         # Clear the features_changed flag after processing
         hass.config_entries.async_update_entry(
