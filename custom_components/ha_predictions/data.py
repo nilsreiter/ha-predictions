@@ -3,17 +3,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from os import uname
-from typing import TYPE_CHECKING, Callable
-
-from yaml import unsafe_load
-
-from custom_components.ha_predictions.entity import DeviceInfo
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from pathlib import Path
 
     from homeassistant.config_entries import ConfigEntry
+    from homeassistant.helpers.device_registry import DeviceInfo
     from homeassistant.loader import Integration
 
     from .coordinator import HAPredictionUpdateCoordinator

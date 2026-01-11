@@ -12,11 +12,12 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from homeassistant.const import Platform
-from homeassistant.core import callback
+from homeassistant.core import (
+    callback,
+)
+from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.loader import async_get_loaded_integration
-
-from custom_components.ha_predictions.entity import DeviceInfo
 
 from .const import (
     CONF_FEATURE_ENTITY,
@@ -126,9 +127,7 @@ async def async_reload_entry(
                 datafile,
             )
             # Use lambda to pass missing_ok parameter
-            await hass.async_add_executor_job(
-                lambda: datafile.unlink(missing_ok=True)
-            )
+            await hass.async_add_executor_job(lambda: datafile.unlink(missing_ok=True))
 
         # Clear the features_changed flag after processing
         hass.config_entries.async_update_entry(

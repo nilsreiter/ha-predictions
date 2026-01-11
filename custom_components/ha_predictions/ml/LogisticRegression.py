@@ -3,6 +3,11 @@ from types import NoneType
 import numpy as np
 
 
+# TODO: Add multi-class support
+# TODO: Add regularization
+# TODO: Add better convergence checks
+# TODO: Optimize performance with vectorized operations, but without introducing additional dependencies
+# TODO: Deal with missing data (gracefully handle NaNs)
 class LogisticRegression:
     weights: np.ndarray | NoneType = None
     bias: float = 0
@@ -56,6 +61,7 @@ class LogisticRegression:
 
         Returns:
             tuple: (predicted_classes, probabilities) or None
+
         """
         if self.weights is not None:
             threshold = 0.5
@@ -67,8 +73,8 @@ class LogisticRegression:
         return (None, None)
 
     def score(self, x: np.ndarray, y_gold: np.ndarray) -> float:
-        y_pred = self.predict(x)
-        matches = (y_gold == y_pred).sum()
+        y_pred_classes, _ = self.predict(x)
+        matches = (y_gold == y_pred_classes).sum()
         total = len(y_gold)
         return matches / total
 
