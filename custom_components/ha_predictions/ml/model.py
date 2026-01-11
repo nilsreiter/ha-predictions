@@ -31,15 +31,6 @@ class Model:
 
         data_copy = data.copy()
 
-        # Remove target column if present to match training data shape
-        # During training, x_train excludes the target column (train_final line 79: x_train = dfn[:, :-1])
-        # So prediction input must also exclude it to avoid shape mismatch
-        if self.target_column and self.target_column in data_copy.columns:
-            self.logger.debug(
-                "Dropping target column '%s' from prediction input", self.target_column
-            )
-            data_copy = data_copy.drop(columns=[self.target_column])
-
         # Apply factorization to features only
         for col, categories in self.factors.items():
             if col == self.target_column:
