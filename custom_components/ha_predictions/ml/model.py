@@ -43,6 +43,9 @@ class Model:
 
         # Remove target column if present to match training data shape
         if self.target_column and self.target_column in data_copy.columns:
+            self.logger.debug(
+                "Dropping target column '%s' from prediction input", self.target_column
+            )
             data_copy = data_copy.drop(columns=[self.target_column])
 
         # Predict
