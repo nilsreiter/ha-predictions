@@ -40,10 +40,34 @@ class HAPredictionsFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 unique_id=slugify(user_input[CONF_TARGET_ENTITY])
             )
             self._abort_if_unique_id_configured()
-            return self.async_create_entry(
-                title="Prediction for " + user_input[CONF_TARGET_ENTITY],
-                data=user_input,
-            )
+
+            # Validate entities exist and are of correct type
+            target_entity = user_input[CONF_TARGET_ENTITY]
+            feature_entities = user_input[CONF_FEATURE_ENTITY]
+
+            # Check if target entity exists
+            if self.hass.states.get(target_entity) is None:
+                _errors["base"] = "target_entity_not_found"
+
+            # Check if target entity is of correct domain
+            if not _errors:
+                target_domain = target_entity.split(".")[0]
+                if target_domain not in ["light", "switch", "input_boolean"]:
+                    _errors["base"] = "target_entity_wrong_domain"
+
+            # Check if all feature entities exist
+            if not _errors:
+                for feature_entity in feature_entities:
+                    if self.hass.states.get(feature_entity) is None:
+                        _errors["base"] = "feature_entity_not_found"
+                        break
+
+            # If no errors, create the entry
+            if not _errors:
+                return self.async_create_entry(
+                    title="Prediction for " + user_input[CONF_TARGET_ENTITY],
+                    data=user_input,
+                )
 
         return self.async_show_form(
             step_id="user",
