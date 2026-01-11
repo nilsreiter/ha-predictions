@@ -1,3 +1,5 @@
+"""Button entities for HA Predictions integration."""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
@@ -46,11 +48,14 @@ async def async_setup_entry(
 
 
 class StoreInstanceButton(HAPredictionEntity, ButtonEntity):
+    """Button entity to store a new instance."""
+
     def __init__(
         self,
         coordinator: HAPredictionUpdateCoordinator,
         entity_description: ButtonEntityDescription,
-    ):
+    ) -> None:
+        """Initialize the button entity."""
         super().__init__(coordinator)
         self.entity_description = entity_description
 
@@ -60,15 +65,19 @@ class StoreInstanceButton(HAPredictionEntity, ButtonEntity):
 
     @cached_property
     def unique_id(self) -> str | None:
+        """Return a unique ID."""
         return self.coordinator.config_entry.entry_id + "-store-instance"
 
 
 class RunTrainingButton(HAPredictionEntity, ButtonEntity):
+    """Button entity to run model training."""
+
     def __init__(
         self,
         coordinator: HAPredictionUpdateCoordinator,
         entity_description: ButtonEntityDescription,
-    ):
+    ) -> None:
+        """Initialize the button entity."""
         super().__init__(coordinator)
         self.entity_description = entity_description
         coordinator.register(self)
@@ -79,10 +88,12 @@ class RunTrainingButton(HAPredictionEntity, ButtonEntity):
 
     @cached_property
     def unique_id(self) -> str | None:
+        """Return a unique ID."""
         return self.coordinator.config_entry.entry_id + "-run-training"
 
     @property
     def available(self) -> bool:
+        """Return if entity is available."""
         return self.coordinator.training_ready
 
     def notify(self, msg: str) -> None:

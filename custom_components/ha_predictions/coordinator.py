@@ -47,18 +47,22 @@ class HAPredictionUpdateCoordinator(DataUpdateCoordinator):
     async def _async_update_data(self) -> Any:
         """Update data via library."""
 
-    def register(self, entity: HAPredictionEntity):
+    def register(self, entity: HAPredictionEntity) -> None:
+        """Register an entity to be notified on changes."""
         self.entity_registry.append(entity)
 
     def remove_listeners(self) -> None:
+        """Remove all listeners."""
         self.entity_registry.clear()
 
     def set_operation_mode(self, mode: str) -> None:
+        """Set the operation mode."""
         if mode != self.operation_mode:
             self.operation_mode = mode
             self.logger.info("Operation mode has been changed to %s", mode)
 
     def state_changed(self, event: Event[EventStateChangedData]) -> None:
+        """Handle state changes of monitored entities."""
         new_state = event.data["new_state"]
         old_state = event.data["old_state"]
 
@@ -82,6 +86,7 @@ class HAPredictionUpdateCoordinator(DataUpdateCoordinator):
                     [e.notify(MSG_PREDICTION_MADE) for e in self.entity_registry]
 
     def _initialize_dataframe(self) -> NoneType:
+        """Initialize empty dataframe for dataset."""
         self.dataset = pd.DataFrame(
             columns=[
                 *list(self.config_entry.data[CONF_FEATURE_ENTITY]),
@@ -91,6 +96,7 @@ class HAPredictionUpdateCoordinator(DataUpdateCoordinator):
         self.logger.debug("Initialized new dataframe: %s", str(self.dataset))
 
     def _get_state_for_entity(self, entity_id: str) -> str | float | NoneType:
+        """Get the state for a given entity_id."""
         if state := self.hass.states.get(entity_id=entity_id):
             try:
                 return float(state.state)
@@ -100,8 +106,9 @@ class HAPredictionUpdateCoordinator(DataUpdateCoordinator):
         return None
 
     def _get_states_for_entities(
-        self, include_target: bool | NoneType = True
+        self, *, include_target: bool | NoneType = True
     ) -> list[str | float | NoneType]:
+        """Get the states for all monitored entities."""
         features = [
             self._get_state_for_entity(e)
             for e in self.config_entry.data[CONF_FEATURE_ENTITY]
@@ -116,6 +123,7 @@ class HAPredictionUpdateCoordinator(DataUpdateCoordinator):
         return features
 
     def read_table(self) -> NoneType:
+        """Read dataset from file."""
         self.logger.info(
             "Reading dataset from file: %s",
             str(self.config_entry.runtime_data.datafile),
@@ -127,7 +135,8 @@ class HAPredictionUpdateCoordinator(DataUpdateCoordinator):
             self.dataset_size = self.dataset.shape[0]
             [e.notify(MSG_DATASET_CHANGED) for e in self.entity_registry]
 
-    def store_table(self, df: pd.DataFrame | NoneType):
+    def store_table(self, df: pd.DataFrame | NoneType) -> NoneType:
+        """Store dataset to file."""
         self.config_entry.runtime_data.datafile.parent.mkdir(
             parents=True, exist_ok=True
         )
