@@ -130,9 +130,7 @@ class HAPredictionUpdateCoordinator(DataUpdateCoordinator):
         Runs blocking operations in executor to avoid blocking event loop.
         """
         # Run blocking operations in executor
-        prediction = await self.hass.async_add_executor_job(
-            self._compute_prediction
-        )
+        prediction = await self.hass.async_add_executor_job(self._compute_prediction)
 
         # Update state and notify entities on main event loop
         if prediction is not None:
