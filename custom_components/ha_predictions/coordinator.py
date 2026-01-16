@@ -30,7 +30,6 @@ if TYPE_CHECKING:
     from .entity import HAPredictionEntity
 
 
-# https://developers.home-assistant.io/docs/integration_fetching_data#coordinated-single-api-poll-for-data-for-all-entities
 class HAPredictionUpdateCoordinator(DataUpdateCoordinator):
     """Class to manage training/testing the model."""
 
