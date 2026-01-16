@@ -35,7 +35,7 @@ class HAPredictionUpdateCoordinator(DataUpdateCoordinator):
 
     config_entry: HAPredictionConfigEntry
 
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(self, *args, **kwargs) -> None:  # noqa: ANN002, ANN003
         """Initialize the coordinator."""
         super().__init__(*args, **kwargs)
         # Initialize instance variables to avoid sharing between coordinator instances
