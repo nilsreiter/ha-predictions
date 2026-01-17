@@ -6,8 +6,10 @@ from typing import Any
 
 import numpy as np
 
-from .exceptions import ModelNotTreainedError
+from .exceptions import ModelNotTrainedError
 from .logistic_regression import LogisticRegression
+
+
 class Model:
     """Class to manage the ML model instance."""
 
@@ -21,30 +23,33 @@ class Model:
         self.target_column_idx: int | None = None
         self.prediction_ready: bool = False
 
-    def predict(
-        self, data: np.ndarray
-    ) -> tuple[str, float] | NoneType:
-        """Make predictions and return original values.
-        
+    def predict(self, data: np.ndarray) -> tuple[str, float] | NoneType:
+        """
+        Make predictions and return original values.
+
         Args:
             data: Numpy array of feature values (raw, not encoded)
-        
+
         Returns:
-            Tuple of (predicted_label, probability) or None
+            Tuple of (predicted_label, probability) or None if prediction not possible.
+
+        Raises:
+            ModelNotTrainedError: If the model is not (yet) trained.
+
         """
         if self.model_final is None:
-            raise ModelNotTreainedError
+            raise ModelNotTrainedError
 
         # Apply factorization to features only using stored factors
         # Create a new array with float dtype to avoid object dtype issues
         data_encoded = np.empty(data.shape, dtype=float)
-        
+
         for col_idx in range(data.shape[1]):
             # Apply factorization if this column was factorized during training
             if col_idx in self.factors:
                 value = data[0, col_idx]
                 categories = self.factors[col_idx]
-                
+
                 # Find the index of the value in categories using numpy
                 try:
                     idx = np.where(categories == value)[0]
@@ -85,11 +90,13 @@ class Model:
         self,
         data: np.ndarray,
     ) -> None:
-        """Train the final model.
-        
+        """
+        Train the final model.
+
         Args:
-            data: Numpy array with features and target (not encoded). 
+            data: Numpy array with features and target (not encoded).
                   Last column is assumed to be the target column.
+
         """
         # Target column is the last column
         self.target_column_idx = data.shape[1] - 1
@@ -98,14 +105,18 @@ class Model:
         # Create a new array with float dtype to avoid object dtype issues
         data_encoded = np.empty(data.shape, dtype=float)
         self.factors = {}
-        
+
         for col_idx in range(data.shape[1]):
             column_data = data[:, col_idx]
-            
+
             # Check if column contains non-numeric data
-            if column_data.dtype == object or not np.issubdtype(column_data.dtype, np.number):
+            if column_data.dtype == object or not np.issubdtype(
+                column_data.dtype, np.number
+            ):
                 # Use numpy.unique to get unique values and their indices
-                unique_values, inverse_indices = np.unique(column_data, return_inverse=True)
+                unique_values, inverse_indices = np.unique(
+                    column_data, return_inverse=True
+                )
                 # Store the unique values for later decoding (keyed by column index)
                 self.factors[col_idx] = unique_values
                 # Replace column with encoded indices
@@ -126,25 +137,31 @@ class Model:
         self.prediction_ready = True
 
     def train_eval(self, data: np.ndarray) -> NoneType:
-        """Train and evaluate the model with train/test split.
-        
+        """
+        Train and evaluate the model with train/test split.
+
         Args:
             data: Numpy array with features and target (not encoded).
                   Last column is assumed to be the target column.
+
         """
         self.logger.info("Starting training for evaluation with data: %s", str(data))
 
         # Factorize categorical columns using numpy.unique
         # Create a new array with float dtype to avoid object dtype issues
         data_encoded = np.empty(data.shape, dtype=float)
-        
+
         for col_idx in range(data.shape[1]):
             column_data = data[:, col_idx]
-            
+
             # Check if column contains non-numeric data
-            if column_data.dtype == object or not np.issubdtype(column_data.dtype, np.number):
+            if column_data.dtype == object or not np.issubdtype(
+                column_data.dtype, np.number
+            ):
                 # Use numpy.unique to get unique values and their indices
-                unique_values, inverse_indices = np.unique(column_data, return_inverse=True)
+                unique_values, inverse_indices = np.unique(
+                    column_data, return_inverse=True
+                )
                 # Replace column with encoded indices
                 data_encoded[:, col_idx] = inverse_indices.astype(float)
             else:
