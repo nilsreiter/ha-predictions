@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections import defaultdict
 from contextlib import contextmanager
 from pathlib import Path
@@ -64,7 +65,8 @@ class HAPredictionUpdateCoordinator(DataUpdateCoordinator):
 
     async def initialize(self) -> NoneType:
         """Initialize the coordinator."""
-        self.read_table()
+        loop = asyncio.get_running_loop()
+        await loop.run_in_executor(None, self.read_table)
         if self.dataset is None:
             self.logger.debug("No dataset found on disk.")
             if self.config_entry.options.get(CONF_ADDITIONAL_SETTINGS, {}).get(
@@ -74,7 +76,7 @@ class HAPredictionUpdateCoordinator(DataUpdateCoordinator):
                 self.hass.async_create_task(
                     self._extract_initial_dataset_from_recorder()
                 )
-                self.store_table(self.dataset)
+                await loop.run_in_executor(None, self.store_table, self.dataset)
             else:
                 self._initialize_dataframe()
 
@@ -314,6 +316,8 @@ class HAPredictionUpdateCoordinator(DataUpdateCoordinator):
                     self.config_entry.runtime_data.datafile, header=0
                 )
                 self.dataset_size = self.dataset.shape[0]
+                self.training_ready = self.dataset_size >= MIN_DATASET_SIZE
+                self.logger.debug("Read dataset with %d instances.", self.dataset_size)
                 [e.notify(MSG_DATASET_CHANGED) for e in self.entity_registry]
             except (OSError, PermissionError):
                 self.logger.exception(

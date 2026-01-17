@@ -332,7 +332,7 @@ class Model:
                     k_neighbors=self.transformations["sampling"].get("k_neighbors", 5),
                 )
                 train = np.hstack((x_train_smote, y_train_smote.reshape(-1, 1)))
-                self.logger.debug("Training data after SMOTE: %s", np.info(train))
+                self.logger.debug("Training data after SMOTE: %s", train)
             elif (
                 self.transformations["sampling"]["type"] == SamplingStrategy.RANDOM_OVER
             ):
@@ -344,7 +344,5 @@ class Model:
                     target_class=None,
                 )
                 train = np.hstack((x_train_rand, y_train_rand.reshape(-1, 1)))
-                self.logger.debug(
-                    "Training data after random oversampling: %s", np.info(train)
-                )
+                self.logger.debug("Training data after random oversampling: %s", train)
         return train
