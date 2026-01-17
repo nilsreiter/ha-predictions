@@ -80,30 +80,30 @@ def smote(
         cls_count = len(cls_indices)
         n_samples_needed = max_count - cls_count
 
-        if (
-            n_samples_needed > 0
-            and (target_class is None or cls == target_class)
-            and cls_count > k_neighbors
-        ):
+        if n_samples_needed > 0 and (target_class is None or cls == target_class):
+            if cls_count < 2:
+                # Can't apply SMOTE to single-sample classes
+                raise ValueError(
+                    f"Cannot apply SMOTE to class {cls} with only {cls_count} sample(s). "
+                    f"At least 2 samples are required."
+                )
+
             x_cls = x[cls_indices]
+            actual_k = min(k_neighbors, cls_count - 1)
 
             # Generate synthetic samples
             synthetic_samples = []
 
             for _ in range(n_samples_needed):
-                # Pick random sample
                 idx = rng.integers(0, len(x_cls))
                 sample = x_cls[idx]
 
-                # Find k nearest neighbors (excluding itself)
                 distances = np.linalg.norm(x_cls - sample, axis=1)
-                nearest_indices = np.argsort(distances)[1 : k_neighbors + 1]
+                nearest_indices = np.argsort(distances)[1 : actual_k + 1]
 
-                # Pick random neighbor
                 neighbor_idx = rng.choice(nearest_indices)
                 neighbor = x_cls[neighbor_idx]
 
-                # Generate synthetic sample (interpolate)
                 alpha = rng.random()
                 synthetic = sample + alpha * (neighbor - sample)
                 synthetic_samples.append(synthetic)
@@ -116,6 +116,5 @@ def smote(
     x_resampled = np.vstack(x_resampled)
     y_resampled = np.concatenate(y_resampled)
 
-    # Shuffle
     shuffle_idx = rng.permutation(len(y_resampled))
     return x_resampled[shuffle_idx], y_resampled[shuffle_idx]

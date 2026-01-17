@@ -8,10 +8,7 @@ import pytest
 
 # Add the ml directory to the path to avoid importing homeassistant dependencies
 ml_path = (
-    Path(__file__).parent.parent.parent
-    / "custom_components"
-    / "ha_predictions"
-    / "ml"
+    Path(__file__).parent.parent.parent / "custom_components" / "ha_predictions" / "ml"
 )
 sys.path.insert(0, str(ml_path))
 
@@ -186,13 +183,26 @@ class TestSMOTE:
         assert counts[1] == 3  # Class 1 oversampled
 
     def test_k_neighbors_parameter(self) -> None:
-        """Test SMOTE with different k_neighbors values.
+        """
+        Test SMOTE with different k_neighbors values.
 
         Note: SMOTE requires at least (k_neighbors + 1) samples in the minority
         class to work, since it needs k_neighbors after excluding the sample itself.
         """
         # Need at least k_neighbors+1 samples in minority class for SMOTE to work
-        x = np.array([[1, 2], [2, 3], [3, 4], [4, 5], [5, 6], [10, 11], [11, 12], [12, 13], [13, 14]])
+        x = np.array(
+            [
+                [1, 2],
+                [2, 3],
+                [3, 4],
+                [4, 5],
+                [5, 6],
+                [10, 11],
+                [11, 12],
+                [12, 13],
+                [13, 14],
+            ]
+        )
         y = np.array([0, 0, 0, 0, 0, 1, 1, 1, 1])
 
         # Should work with k_neighbors=3 (minority class has 4 samples)
@@ -203,13 +213,16 @@ class TestSMOTE:
         assert counts[1] == 5
 
     def test_k_neighbors_exceeds_minority_size(self) -> None:
-        """Test SMOTE when k_neighbors is close to minority class size.
+        """
+        Test SMOTE when k_neighbors is close to minority class size.
 
         Note: SMOTE requires at least (k_neighbors + 1) samples in the minority
         class to work, since it needs k_neighbors after excluding the sample itself.
         """
         # Minority class has 3 samples, k_neighbors=2 should work (needs 2+1=3)
-        x = np.array([[1, 2], [2, 3], [3, 4], [4, 5], [5, 6], [10, 11], [11, 12], [12, 13]])
+        x = np.array(
+            [[1, 2], [2, 3], [3, 4], [4, 5], [5, 6], [10, 11], [11, 12], [12, 13]]
+        )
         y = np.array([0, 0, 0, 0, 0, 1, 1, 1])
 
         # k_neighbors=2, minority has 3 samples - should work
@@ -233,8 +246,9 @@ class TestSMOTE:
         class_1_samples = x_resampled[class_1_mask]
 
         # At least one sample should be [10, 10] or [11, 11] (original)
-        assert np.any(np.all(class_1_samples == [10, 10], axis=1)) or \
-               np.any(np.all(class_1_samples == [11, 11], axis=1))
+        assert np.any(np.all(class_1_samples == [10, 10], axis=1)) or np.any(
+            np.all(class_1_samples == [11, 11], axis=1)
+        )
 
         # Check that synthetic samples are reasonable
         # Should have 3 samples total (2 original + 1 synthetic)
@@ -253,7 +267,8 @@ class TestSMOTE:
         assert counts[0] == counts[1] == 1
 
     def test_single_sample_minority(self) -> None:
-        """Test SMOTE with single sample in minority class.
+        """
+        Test SMOTE with single sample in minority class.
 
         Note: SMOTE requires at least (k_neighbors + 1) samples in the minority
         class to work properly. With the default k_neighbors=5, this means at least
@@ -264,7 +279,9 @@ class TestSMOTE:
         y = np.array([0, 0, 0, 1])
 
         # This should raise an error with current implementation
-        with pytest.raises(ValueError, match="a cannot be empty"):
+        with pytest.raises(
+            ValueError, match="Cannot apply SMOTE to class 1 with only 1 sample"
+        ):
             x_resampled, y_resampled = smote(x, y, k_neighbors=1)
 
     def test_output_shapes(self) -> None:
@@ -305,11 +322,17 @@ class TestSMOTE:
         Note: Each minority class needs at least 2 samples for SMOTE to work.
         """
         # Each minority class needs at least 2 samples
-        x = np.array([
-            [1, 2], [2, 3], [3, 4],      # Class 0 (3 samples)
-            [10, 11], [11, 12],           # Class 1 (2 samples)
-            [20, 21], [21, 22]            # Class 2 (2 samples)
-        ])
+        x = np.array(
+            [
+                [1, 2],
+                [2, 3],
+                [3, 4],  # Class 0 (3 samples)
+                [10, 11],
+                [11, 12],  # Class 1 (2 samples)
+                [20, 21],
+                [21, 22],  # Class 2 (2 samples)
+            ]
+        )
         y = np.array([0, 0, 0, 1, 1, 2, 2])
 
         x_resampled, y_resampled = smote(x, y)
