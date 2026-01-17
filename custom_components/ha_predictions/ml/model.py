@@ -179,7 +179,11 @@ class Model:
 
         for col_idx in range(filtered_arr.shape[1]):
             column_data = filtered_arr[:, col_idx]
-
+            self.logger.debug(
+                "Factorizing column %d, which has type %s",
+                col_idx,
+                str(column_data.dtype),
+            )
             # Check if column contains non-numeric data
             if column_data.dtype == object or not np.issubdtype(
                 column_data.dtype, np.number

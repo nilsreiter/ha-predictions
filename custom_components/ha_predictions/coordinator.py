@@ -509,7 +509,7 @@ class HomeAssistantStateExtractor:
         all_timestamps = sorted(timestamp_data.keys())
 
         # Track last known state for forward fill
-        last_state = dict.fromkeys(entities)
+        last_state = dict.fromkeys(entities, "")
 
         # Build pivot rows
         pivot_rows = []
@@ -524,11 +524,11 @@ class HomeAssistantStateExtractor:
             row.update({entity: last_state[entity] for entity in entities})
 
             # Filter weird rows
-            if last_state[target_entity] is None:
+            if last_state[target_entity] == "":
                 continue
 
             # Keep rows that have 2 or fewer None values
-            if sum(last_state[e] is None for e in entities) <= 2:
+            if sum(last_state[e] == "" for e in entities) <= 2:
                 pivot_rows.append(row)
 
         return pivot_rows
