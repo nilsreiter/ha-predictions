@@ -257,9 +257,6 @@ class Model:
         self,
         data: np.ndarray,
         *,
-        filter_all_features_invalid: bool = True,
-        filter_nan: bool = True,
-        filter_null: bool = True,
         filter_unavailable: bool = True,
         filter_unknown: bool = True,
     ) -> np.ndarray:
