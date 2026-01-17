@@ -187,7 +187,7 @@ class TestSMOTE:
 
     def test_k_neighbors_parameter(self) -> None:
         """Test SMOTE with different k_neighbors values.
-        
+
         Note: SMOTE requires at least (k_neighbors + 1) samples in the minority
         class to work, since it needs k_neighbors after excluding the sample itself.
         """
@@ -204,7 +204,7 @@ class TestSMOTE:
 
     def test_k_neighbors_exceeds_minority_size(self) -> None:
         """Test SMOTE when k_neighbors is close to minority class size.
-        
+
         Note: SMOTE requires at least (k_neighbors + 1) samples in the minority
         class to work, since it needs k_neighbors after excluding the sample itself.
         """
@@ -254,7 +254,7 @@ class TestSMOTE:
 
     def test_single_sample_minority(self) -> None:
         """Test SMOTE with single sample in minority class.
-        
+
         Note: SMOTE requires at least (k_neighbors + 1) samples in the minority
         class to work properly. With the default k_neighbors=5, this means at least
         6 samples. With a single sample, there are no neighbors available, so SMOTE
@@ -269,7 +269,7 @@ class TestSMOTE:
 
     def test_output_shapes(self) -> None:
         """Test that SMOTE output shapes are correct.
-        
+
         Note: Need at least 2 samples in minority class (k_neighbors=5 default
         requires 6, but we use the minimum viable case).
         """
@@ -301,7 +301,7 @@ class TestSMOTE:
 
     def test_multiple_classes(self) -> None:
         """Test SMOTE with more than two classes.
-        
+
         Note: Each minority class needs at least 2 samples for SMOTE to work.
         """
         # Each minority class needs at least 2 samples
@@ -344,7 +344,7 @@ class TestSMOTE:
 
     def test_preserves_original_samples(self) -> None:
         """Test that SMOTE preserves all original samples.
-        
+
         Note: Need at least 2 samples in minority class for SMOTE to work.
         """
         # Need at least 2 samples in minority class
@@ -364,7 +364,7 @@ class TestSMOTE:
 
     def test_synthetic_samples_reasonable_range(self) -> None:
         """Test that synthetic samples fall within reasonable range.
-        
+
         Note: Need at least 2 samples in minority class for SMOTE to work.
         """
         # Need at least 2 samples in minority class
