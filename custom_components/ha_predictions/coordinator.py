@@ -61,10 +61,22 @@ class HAPredictionUpdateCoordinator(DataUpdateCoordinator):
         self.operation_mode: OperationMode = OperationMode.TRAINING
         self.training_ready: bool = False
         self.current_prediction: tuple[str, float] | NoneType = None
-        if self.config_entry.options.get(CONF_ADDITIONAL_SETTINGS, {}).get(
-            CONF_ADDITIONAL_SETTINGS_IMPORT_FROM_RECORDER, True
-        ):
-            self.hass.async_create_task(self._extract_initial_dataset_from_recorder())
+
+    async def initialize(self) -> NoneType:
+        """Initialize the coordinator."""
+        self.read_table()
+        if self.dataset is None:
+            self.logger.debug("No dataset found on disk.")
+            if self.config_entry.options.get(CONF_ADDITIONAL_SETTINGS, {}).get(
+                CONF_ADDITIONAL_SETTINGS_IMPORT_FROM_RECORDER, True
+            ):
+                self.logger.debug("Importing initial dataset from recorder database.")
+                self.hass.async_create_task(
+                    self._extract_initial_dataset_from_recorder()
+                )
+                self.store_table(self.dataset)
+            else:
+                self._initialize_dataframe()
 
     async def _async_update_data(self) -> Any:
         """Update data via library."""

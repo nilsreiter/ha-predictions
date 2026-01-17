@@ -94,8 +94,8 @@ async def async_setup_entry(
             suggested_area=suggested_area,
         ),
     )
-    await hass.async_add_executor_job(coordinator.read_table)
     await coordinator.async_config_entry_first_refresh()
+    await coordinator.initialize()
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     entry.async_on_unload(entry.add_update_listener(async_reload_entry))
