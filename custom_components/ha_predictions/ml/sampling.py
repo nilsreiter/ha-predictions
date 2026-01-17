@@ -6,7 +6,7 @@ import numpy as np
 
 
 def random_oversample(
-    x: np.ndarray, y: np.ndarray, target_class: Any = None
+    x: np.ndarray, y: np.ndarray, target_class: Any | None = None
 ) -> tuple[np.ndarray, np.ndarray]:
     """
     Randomly oversample minority class(es) to match majority class size.
@@ -52,7 +52,7 @@ def random_oversample(
 
 
 def smote(
-    x: np.ndarray, y: np.ndarray, k_neighbors: int = 5, target_class=None
+    x: np.ndarray, y: np.ndarray, k_neighbors: int = 5, target_class: Any | None = None
 ) -> tuple[np.ndarray, np.ndarray]:
     """
     SMOTE implementation in pure numpy. Creates synthetic samples by interpolating between minority samples.
