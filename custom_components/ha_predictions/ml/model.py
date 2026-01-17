@@ -168,12 +168,18 @@ class Model:
         """
         self.logger.info("Starting training for evaluation with data: %s", str(data))
 
+        # TODO: Add test for this filtering
+        # Remove rows with 'Unavailable' in the target column (last column)
+        filtered_arr = data[data[:, -1] != "unavailable"]
+        # Remove rows with 'unknown' in the target column
+        filtered_arr = filtered_arr[filtered_arr[:, -1] != "unknown"]
+
         # Factorize categorical columns using numpy.unique
         # Create a new array with float dtype to avoid object dtype issues
-        data_encoded = np.empty(data.shape, dtype=float)
+        data_encoded = np.empty(filtered_arr.shape, dtype=float)
 
-        for col_idx in range(data.shape[1]):
-            column_data = data[:, col_idx]
+        for col_idx in range(filtered_arr.shape[1]):
+            column_data = filtered_arr[:, col_idx]
 
             # Check if column contains non-numeric data
             if column_data.dtype == object or not np.issubdtype(

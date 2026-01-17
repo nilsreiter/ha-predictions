@@ -179,9 +179,20 @@ class HAPredictionUpdateCoordinator(DataUpdateCoordinator):
         Runs in executor to avoid blocking event loop.
         """
         xy = self._get_states_for_entities()
+        if xy is None:
+            self.logger.info(
+                "Target entity not available or not known, skipping data collection."
+            )
+            return
         if self.dataset is None:
             self._initialize_dataframe()
-        if self.dataset is not None:
+        if self.dataset is not None and xy[-1] not in [
+            "unavailable",
+            "unknown",
+            "Unavailable",
+            "Unknown",
+            None,
+        ]:
             self.dataset.loc[len(self.dataset)] = xy
             self.dataset_size = self.dataset.shape[0]
             self.logger.info(self.dataset)
@@ -241,19 +252,25 @@ class HAPredictionUpdateCoordinator(DataUpdateCoordinator):
 
     def _get_states_for_entities(
         self, *, include_target: bool | NoneType = True
-    ) -> list[str | float | NoneType]:
+    ) -> list[str | float | NoneType] | NoneType:
         """Get the states for all monitored entities."""
         features = [
             self._get_state_for_entity(e)
             for e in self.config_entry.data[CONF_FEATURE_ENTITY]
         ]
         if include_target:
-            return [
-                *features,
-                self._get_state_for_entity(
-                    entity_id=self.config_entry.data[CONF_TARGET_ENTITY]
-                ),
-            ]
+            target_entity_state = self._get_state_for_entity(
+                entity_id=self.config_entry.data[CONF_TARGET_ENTITY]
+            )
+            if target_entity_state not in [
+                "unavailable",
+                "unknown",
+                None,
+                "Unavailable",
+                "Unknown",
+            ]:
+                return [*features, target_entity_state]
+            return None
         return features
 
     def read_table(self) -> NoneType:
