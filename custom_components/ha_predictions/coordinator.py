@@ -89,6 +89,12 @@ class HAPredictionUpdateCoordinator(DataUpdateCoordinator):
                 return SAMPLING_RANDOM
             if sampling_type == SamplingStrategy.SMOTE:
                 return SAMPLING_SMOTE
+            self.logger.warning(
+                "Unknown sampling strategy '%s', defaulting to '%s'",
+                sampling_type,
+                SAMPLING_NONE,
+            )
+            return SAMPLING_NONE
         return None
 
     def select_option(self, key: str, value: str) -> NoneType:
