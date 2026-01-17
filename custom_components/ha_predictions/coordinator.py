@@ -47,7 +47,6 @@ class HAPredictionUpdateCoordinator(DataUpdateCoordinator):
         # Initialize instance variables to avoid sharing between coordinator instances
         self.accuracy: float | NoneType = None
         self.entity_registry: list[HAPredictionEntity] = []
-        # TODO: Use only numpy array as dataset representation
         self.dataset: pd.DataFrame | NoneType = None
         self.dataset_size: int = 0
         self.model: Model = Model(self.logger)
@@ -257,7 +256,6 @@ class HAPredictionUpdateCoordinator(DataUpdateCoordinator):
             ]
         return features
 
-    # TODO: Check that this doesn't block the event loop
     def read_table(self) -> NoneType:
         """Read dataset from file."""
         self.logger.info(
@@ -271,8 +269,9 @@ class HAPredictionUpdateCoordinator(DataUpdateCoordinator):
             self.dataset_size = self.dataset.shape[0]
             [e.notify(MSG_DATASET_CHANGED) for e in self.entity_registry]
 
-    # TODO: handle possible IO errors
-    # TODO: storing on disk should happend regularly in the background
+    # TODO: handle possible IO errors  # noqa: FIX002, TD002, TD003
+    # TODO: storing on disk should happend in background # noqa: FIX002, TD002, TD003
+
     def store_table(self, df: pd.DataFrame | NoneType) -> None:
         """Store dataset to file."""
         self.config_entry.runtime_data.datafile.parent.mkdir(

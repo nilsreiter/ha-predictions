@@ -6,6 +6,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .coordinator import HAPredictionUpdateCoordinator
 
+
 class HAPredictionEntity(CoordinatorEntity[HAPredictionUpdateCoordinator]):
     """Base Entity class."""
 

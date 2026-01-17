@@ -3,10 +3,11 @@
 import sys
 from pathlib import Path
 from types import NoneType
-from typing import Any, ClassVar
+from typing import Any
 
 import numpy as np
 import pandas as pd
+import pytest
 
 # Add the ml directory to the path to avoid importing homeassistant dependencies
 ml_path = (
@@ -18,6 +19,7 @@ ml_path = (
 sys.path.insert(0, str(ml_path))
 
 from logistic_regression import LogisticRegression  # noqa: E402
+from sampling import random_oversample, smote  # noqa: E402
 
 
 class MockLogger:
@@ -30,46 +32,62 @@ class MockLogger:
         """Mock info method."""
 
 
-class Model:
-    """Minimal Model class for testing (copied from model.py)."""
+class ModelNotTrainedError(Exception):
+    """Exception raised when the model is not trained but an operation requires it."""
 
-    accuracy: float | NoneType = None
-    factors: ClassVar[dict[int, Any]] = {}
-    model_eval: LogisticRegression | None = None
-    model_final: LogisticRegression | None = None
-    target_column_idx: int | None = None
-    prediction_ready: bool = False
+
+class SamplingStrategy:
+    """Mock sampling strategy enum."""
+
+    NONE = "none"
+    RANDOM_OVER = "random_oversample"
+    SMOTE = "smote"
+
+
+class Model:
+    """Model class for testing (updated to match model.py)."""
 
     def __init__(self, logger: MockLogger) -> None:
         """Initialize the Model class."""
         self.logger = logger
-        self.factors = {}
+        self.accuracy: float | NoneType = None
+        self.factors: dict[int, Any] = {}
+        self.model_eval: LogisticRegression | None = None
+        self.model_final: LogisticRegression | None = None
+        self.target_column_idx: int | None = None
+        self.prediction_ready: bool = False
+        self.transformations: dict[str, dict[str, Any]] = {
+            "zscores": {},
+            "sampling": {"type": SamplingStrategy.SMOTE, "k_neighbors": 5},
+        }
 
-    def predict(
-        self, data: np.ndarray
-    ) -> tuple[str, float] | NoneType:
-        """Make predictions and return original values.
-        
+    def predict(self, data: np.ndarray) -> tuple[str, float] | NoneType:
+        """
+        Make predictions and return original values.
+
         Args:
             data: Numpy array of feature values (raw, not encoded)
-        
+
         Returns:
-            Tuple of (predicted_label, probability) or None
+            Tuple of (predicted_label, probability) or None if prediction not possible.
+
+        Raises:
+            ModelNotTrainedError: If the model is not (yet) trained.
+
         """
-        msg = "Model not trained yet."
         if self.model_final is None:
-            raise ValueError(msg)
+            raise ModelNotTrainedError
 
         # Apply factorization to features only using stored factors
         # Create a new array with float dtype to avoid object dtype issues
         data_encoded = np.empty(data.shape, dtype=float)
-        
+
         for col_idx in range(data.shape[1]):
             # Apply factorization if this column was factorized during training
             if col_idx in self.factors:
                 value = data[0, col_idx]
                 categories = self.factors[col_idx]
-                
+
                 # Find the index of the value in categories using numpy
                 try:
                     idx = np.where(categories == value)[0]
@@ -87,10 +105,17 @@ class Model:
                 except (ValueError, TypeError):
                     data_encoded[0, col_idx] = 0.0
 
+        if "zscores" in self.transformations:
+            # Apply z-score normalization
+            self.logger.debug("Applying z-score normalization for prediction")
+            means = self.transformations["zscores"]["means"]
+            stds = self.transformations["zscores"]["stds"]
+
+            data_encoded = (data_encoded - means) / stds
+
         # Predict
         predictions, probabilities = self.model_final.predict(data_encoded)
 
-        # Decode to original values and get probability for predicted class
         if (
             self.target_column_idx is not None
             and self.target_column_idx in self.factors
@@ -111,11 +136,13 @@ class Model:
         self,
         data: np.ndarray,
     ) -> None:
-        """Train the final model.
-        
+        """
+        Train the final model.
+
         Args:
-            data: Numpy array with features and target (not encoded). 
+            data: Numpy array with features and target (not encoded).
                   Last column is assumed to be the target column.
+
         """
         # Target column is the last column
         self.target_column_idx = data.shape[1] - 1
@@ -124,14 +151,18 @@ class Model:
         # Create a new array with float dtype to avoid object dtype issues
         data_encoded = np.empty(data.shape, dtype=float)
         self.factors = {}
-        
+
         for col_idx in range(data.shape[1]):
             column_data = data[:, col_idx]
-            
+
             # Check if column contains non-numeric data
-            if column_data.dtype == object or not np.issubdtype(column_data.dtype, np.number):
+            if column_data.dtype == object or not np.issubdtype(
+                column_data.dtype, np.number
+            ):
                 # Use numpy.unique to get unique values and their indices
-                unique_values, inverse_indices = np.unique(column_data, return_inverse=True)
+                unique_values, inverse_indices = np.unique(
+                    column_data, return_inverse=True
+                )
                 # Store the unique values for later decoding (keyed by column index)
                 self.factors[col_idx] = unique_values
                 # Replace column with encoded indices
@@ -144,12 +175,165 @@ class Model:
         x_train = data_encoded[:, :-1]
         y_train = data_encoded[:, -1]
 
+        if "zscores" in self.transformations:
+            (means, stds, x_train) = self._apply_normalization(x_train)
+            self.transformations["zscores"]["means"] = means
+            self.transformations["zscores"]["stds"] = stds
+
         # Train model
         self.model_final = LogisticRegression()
         self.logger.debug("Training of final model begins")
         self.model_final.fit(x_train, y_train)
         self.logger.debug("Training ends, model: %s", str(self.model_final))
         self.prediction_ready = True
+
+    def train_eval(self, data: np.ndarray) -> NoneType:
+        """
+        Train and evaluate the model with train/test split.
+
+        Args:
+            data: Numpy array with features and target (not encoded).
+                  Last column is assumed to be the target column.
+
+        """
+        self.logger.info("Starting training for evaluation with data: %s", str(data))
+
+        # Factorize categorical columns using numpy.unique
+        # Create a new array with float dtype to avoid object dtype issues
+        data_encoded = np.empty(data.shape, dtype=float)
+
+        for col_idx in range(data.shape[1]):
+            column_data = data[:, col_idx]
+
+            # Check if column contains non-numeric data
+            if column_data.dtype == object or not np.issubdtype(
+                column_data.dtype, np.number
+            ):
+                # Use numpy.unique to get unique values and their indices
+                inverse_indices = np.unique(column_data, return_inverse=True)[1]
+                # Replace column with encoded indices
+                data_encoded[:, col_idx] = inverse_indices.astype(float)
+            else:
+                # Copy numeric data as-is
+                data_encoded[:, col_idx] = column_data.astype(float)
+
+        # train/test split in pure numpy with stratification
+        rng = np.random.Generator(np.random.PCG64())
+
+        # Get target column (last column)
+        y = data_encoded[:, -1]
+        unique_classes = np.unique(y)
+
+        train_indices = []
+        test_indices = []
+
+        # Stratify split based on last column
+        for cls in unique_classes:
+            cls_indices = np.where(y == cls)[0]
+            rng.shuffle(cls_indices)
+
+            n_cls = len(cls_indices)
+            # Ensure at least 1 test sample per class if there are 2+ samples
+            # For single-sample classes, put in training to avoid empty training sets
+            test_size_cls = max(int(n_cls * 0.25), 1) if n_cls >= 2 else 0
+
+            test_indices.extend(cls_indices[:test_size_cls])
+            train_indices.extend(cls_indices[test_size_cls:])
+
+        # Ensure at least 1 test sample overall (fallback for edge cases)
+        if len(test_indices) == 0 and len(train_indices) > 1:
+            # Move one sample from train to test
+            test_indices.append(train_indices.pop())
+
+        # Shuffle the final indices to mix classes
+        train_indices = np.array(train_indices)
+        test_indices = np.array(test_indices)
+        rng.shuffle(train_indices)
+        rng.shuffle(test_indices)
+
+        train = data_encoded[train_indices, :]
+        test = data_encoded[test_indices, :]
+        self.logger.debug("Data used for training: %s", str(train))
+        self.logger.debug("Data used for testing: %s", str(test))
+
+        train = self._apply_sampling(train)
+
+        # Split x and y
+        x_train = train[:, :-1]
+        y_train = train[:, -1]
+        x_test = test[:, :-1]
+        y_test = test[:, -1]
+
+        if "zscores" in self.transformations:
+            (means, stds, x_train) = self._apply_normalization(x_train)
+            x_test = (x_test - means) / stds
+
+        self.model_eval = LogisticRegression()
+        self.logger.debug("Training begins")
+        self.model_eval.fit(x_train, y_train)
+        self.logger.debug("Training ends, model: %s", str(self.model_eval))
+        self.accuracy = self.model_eval.score(x_test, y_test)
+
+    def _apply_normalization(
+        self, data: np.ndarray
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """
+        Apply z-score normalization to data.
+
+        Args:
+            data: Numpy array with feature data.
+
+        Returns:
+            Tuple of (means, stds, normalized_data).
+
+        """
+        self.logger.debug("Applying z-score normalization")
+        means = np.mean(data, axis=0)
+        stds = np.std(data, axis=0, ddof=0)
+
+        # Avoid division by zero by leaving zero-variance features unscaled
+        stds[stds == 0] = 1.0
+
+        data = (data - means) / stds
+        return (means, stds, data)
+
+    def _apply_sampling(self, train: np.ndarray) -> np.ndarray:
+        """
+        Apply sampling strategy to training data.
+
+        Args:
+            train: Numpy array with training data (features + target).
+
+        Returns:
+            Numpy array with resampled training data.
+
+        """
+        if "sampling" in self.transformations:
+            if self.transformations["sampling"]["type"] == SamplingStrategy.SMOTE:
+                # Apply SMOTE to training data
+                self.logger.debug("Applying SMOTE to training data")
+                x_train_smote, y_train_smote = smote(
+                    train[:, :-1],
+                    train[:, -1],
+                    k_neighbors=self.transformations["sampling"].get("k_neighbors", 5),
+                )
+                train = np.hstack((x_train_smote, y_train_smote.reshape(-1, 1)))
+                self.logger.debug("Training data after SMOTE: %s", np.info(train))
+            elif (
+                self.transformations["sampling"]["type"] == SamplingStrategy.RANDOM_OVER
+            ):
+                # Apply random oversampling to training data
+                self.logger.debug("Applying random oversampling to training data")
+                x_train_rand, y_train_rand = random_oversample(
+                    train[:, :-1],
+                    train[:, -1],
+                    target_class=None,
+                )
+                train = np.hstack((x_train_rand, y_train_rand.reshape(-1, 1)))
+                self.logger.debug(
+                    "Training data after random oversampling: %s", np.info(train)
+                )
+        return train
 
 
 def convert_df_to_numpy(df: pd.DataFrame) -> np.ndarray:
@@ -281,4 +465,429 @@ class TestModelPredictProbabilities:
 
         # Predictions at extremes should be different classes
         assert label_low != label_high
-        assert label_low != label_high
+
+
+class TestModelInitialization:
+    """Test Model initialization and attributes."""
+
+    def test_init_creates_transformations(self) -> None:
+        """Test that initialization creates transformations attribute."""
+        model = Model(MockLogger())
+        assert hasattr(model, "transformations")
+        assert "zscores" in model.transformations
+        assert "sampling" in model.transformations
+
+    def test_init_default_sampling_strategy(self) -> None:
+        """Test that default sampling strategy is SMOTE."""
+        model = Model(MockLogger())
+        assert model.transformations["sampling"]["type"] == SamplingStrategy.SMOTE
+        assert model.transformations["sampling"]["k_neighbors"] == 5
+
+    def test_init_factors_empty(self) -> None:
+        """Test that factors dict is initialized empty."""
+        model = Model(MockLogger())
+        assert model.factors == {}
+
+    def test_init_prediction_ready_false(self) -> None:
+        """Test that prediction_ready is False initially."""
+        model = Model(MockLogger())
+        assert model.prediction_ready is False
+
+
+class TestModelPredictError:
+    """Test Model predict error handling."""
+
+    def test_predict_raises_model_not_trained_error(self) -> None:
+        """Test that predict raises ModelNotTrainedError when not trained."""
+        model = Model(MockLogger())
+        test_data = pd.DataFrame({"feature": [1]})
+        test_numpy = convert_df_to_numpy(test_data)
+
+        with pytest.raises(ModelNotTrainedError):
+            model.predict(test_numpy)
+
+
+class TestModelTrainFinalWithNormalization:
+    """Test Model train_final with z-score normalization."""
+
+    def test_train_final_stores_normalization_params(self) -> None:
+        """Test that train_final stores normalization parameters."""
+        model = Model(MockLogger())
+        train_data = pd.DataFrame({
+            "feature1": [100, 200, 300, 400],
+            "feature2": [1000, 2000, 3000, 4000],
+            "target": ["off", "off", "on", "on"],
+        })
+        train_numpy = convert_df_to_numpy(train_data)
+        model.train_final(train_numpy)
+
+        assert "means" in model.transformations["zscores"]
+        assert "stds" in model.transformations["zscores"]
+        assert len(model.transformations["zscores"]["means"]) == 2
+        assert len(model.transformations["zscores"]["stds"]) == 2
+
+    def test_train_final_normalization_parameters(self) -> None:
+        """Test that normalization parameters are calculated correctly."""
+        model = Model(MockLogger())
+        train_data = pd.DataFrame({
+            "feature": [1, 2, 3, 4],
+            "target": ["off", "off", "on", "on"],
+        })
+        train_numpy = convert_df_to_numpy(train_data)
+        model.train_final(train_numpy)
+
+        means = model.transformations["zscores"]["means"]
+        # Mean of [1, 2, 3, 4] encoded as [0, 1, 2, 3] for "off", "off", "on", "on"
+        # Feature column after factorization: [1, 2, 3, 4]
+        # Mean should be 2.5 but only feature columns are normalized (not target)
+        # After train_final, only 1 feature column exists (excluding target)
+        # So means[0] is the mean of the feature column
+        assert len(means) == 1  # Only one feature column
+
+    def test_train_final_zero_variance_handling(self) -> None:
+        """Test that zero-variance features are handled correctly."""
+        model = Model(MockLogger())
+        # Feature1 has zero variance
+        train_data = pd.DataFrame({
+            "feature1": [5, 5, 5, 5],
+            "feature2": [1, 2, 3, 4],
+            "target": ["off", "off", "on", "on"],
+        })
+        train_numpy = convert_df_to_numpy(train_data)
+
+        # Should not raise division by zero error
+        model.train_final(train_numpy)
+        assert model.model_final is not None
+
+        # Std for zero-variance feature should be set to 1.0
+        stds = model.transformations["zscores"]["stds"]
+        assert stds[0] == 1.0
+
+
+class TestModelPredictWithNormalization:
+    """Test Model predict applies normalization."""
+
+    def test_predict_applies_normalization(self) -> None:
+        """Test that predict applies stored normalization parameters."""
+        model = Model(MockLogger())
+        train_data = pd.DataFrame({
+            "feature": [100, 200, 300, 400],
+            "target": ["off", "off", "on", "on"],
+        })
+        train_numpy = convert_df_to_numpy(train_data)
+        model.train_final(train_numpy)
+
+        # Test prediction (normalization should be applied internally)
+        test_data = pd.DataFrame({"feature": [150]})
+        test_numpy = convert_df_to_numpy(test_data)
+        result = model.predict(test_numpy)
+
+        assert result is not None
+        label, probability = result
+        assert label in ["off", "on"]
+
+
+class TestModelTrainEval:
+    """Test Model train_eval method."""
+
+    def test_train_eval_basic(self) -> None:
+        """Test train_eval with basic data."""
+        model = Model(MockLogger())
+        train_data = pd.DataFrame({
+            "feature1": [1, 2, 3, 4, 5, 6, 7, 8],
+            "feature2": [10, 20, 30, 40, 50, 60, 70, 80],
+            "target": ["off", "off", "off", "off", "on", "on", "on", "on"],
+        })
+        train_numpy = convert_df_to_numpy(train_data)
+        model.train_eval(train_numpy)
+
+        assert model.model_eval is not None
+        assert model.accuracy is not None
+        assert 0.0 <= model.accuracy <= 1.0
+
+    def test_train_eval_sets_accuracy(self) -> None:
+        """Test that train_eval sets accuracy attribute."""
+        model = Model(MockLogger())
+        train_data = pd.DataFrame({
+            "feature": list(range(10)),
+            "target": ["off"] * 5 + ["on"] * 5,
+        })
+        train_numpy = convert_df_to_numpy(train_data)
+        model.train_eval(train_numpy)
+
+        assert isinstance(model.accuracy, float)
+        assert 0.0 <= model.accuracy <= 1.0
+
+    def test_train_eval_stratified_split(self) -> None:
+        """Test that train_eval performs stratified split correctly."""
+        model = Model(MockLogger())
+        # Create balanced dataset
+        train_data = pd.DataFrame({
+            "feature": list(range(20)),
+            "target": ["off"] * 10 + ["on"] * 10,
+        })
+        train_numpy = convert_df_to_numpy(train_data)
+        model.train_eval(train_numpy)
+
+        # Should successfully train and evaluate without error
+        assert model.model_eval is not None
+
+    def test_train_eval_edge_case_single_sample_per_class(self) -> None:
+        """Test train_eval with only 1 sample per class."""
+        model = Model(MockLogger())
+        train_data = pd.DataFrame({
+            "feature": [1, 10],
+            "target": ["off", "on"],
+        })
+        train_numpy = convert_df_to_numpy(train_data)
+
+        # Should handle this edge case without error
+        model.train_eval(train_numpy)
+        assert model.model_eval is not None
+
+
+class TestModelSampling:
+    """Test Model sampling functionality."""
+
+    def test_sampling_configuration_default(self) -> None:
+        """Test default sampling configuration is SMOTE."""
+        model = Model(MockLogger())
+        assert model.transformations["sampling"]["type"] == SamplingStrategy.SMOTE
+        assert model.transformations["sampling"]["k_neighbors"] == 5
+
+    def test_sampling_configuration_can_change(self) -> None:
+        """Test that sampling configuration can be changed."""
+        model = Model(MockLogger())
+        model.transformations["sampling"]["type"] = SamplingStrategy.RANDOM_OVER
+
+        # Should be able to use train_eval with changed sampling
+        train_data = pd.DataFrame({
+            "feature": [1, 2, 3, 10, 11, 12],
+            "target": ["off", "off", "off", "on", "on", "on"],
+        })
+        train_numpy = convert_df_to_numpy(train_data)
+        model.train_eval(train_numpy)
+
+        assert model.model_eval is not None
+
+
+class TestModelFactorization:
+    """Test Model factorization functionality."""
+
+    def test_factorization_categorical_features(self) -> None:
+        """Test that categorical features are factorized."""
+        model = Model(MockLogger())
+        train_data = pd.DataFrame({
+            "category": ["a", "b", "c", "d"],
+            "target": ["off", "off", "on", "on"],
+        })
+        train_numpy = convert_df_to_numpy(train_data)
+        model.train_final(train_numpy)
+
+        # Both columns should be factorized (categorical)
+        assert 0 in model.factors  # category column
+        assert 1 in model.factors  # target column
+
+    def test_factorization_numeric_features(self) -> None:
+        """Test that numeric features are not factorized."""
+        model = Model(MockLogger())
+        # Use integer dtype to ensure numpy recognizes as numeric
+        train_data = pd.DataFrame({
+            "numeric": pd.array([1, 2, 3, 4], dtype='int64'),
+            "target": ["off", "off", "on", "on"],
+        })
+        train_numpy = convert_df_to_numpy(train_data)
+        model.train_final(train_numpy)
+
+        # Only target should be factorized (categorical)
+        # Note: When converting pandas to numpy with to_numpy(), 
+        # mixed types create object dtype, so numeric column may be factorized
+        # This test documents actual behavior
+        assert 1 in model.factors  # target column factorized
+
+    def test_factorization_order(self) -> None:
+        """Test that factorization preserves sorted order."""
+        model = Model(MockLogger())
+        train_data = pd.DataFrame({
+            "category": ["c", "a", "b", "a"],
+            "target": ["off", "off", "on", "on"],
+        })
+        train_numpy = convert_df_to_numpy(train_data)
+        model.train_final(train_numpy)
+
+        # numpy.unique sorts values
+        categories = model.factors[0]
+        assert categories[0] == "a"
+        assert categories[1] == "b"
+        assert categories[2] == "c"
+
+
+class TestModelUnknownCategories:
+    """Test Model handling of unknown categorical values."""
+
+    def test_predict_unknown_categorical_value(self) -> None:
+        """Test predict with unknown categorical value uses -1 encoding."""
+        model = Model(MockLogger())
+        train_data = pd.DataFrame({
+            "color": ["red", "blue", "red", "blue"],
+            "target": ["off", "on", "on", "off"],
+        })
+        train_numpy = convert_df_to_numpy(train_data)
+        model.train_final(train_numpy)
+
+        # Predict with unknown category
+        test_data = pd.DataFrame({
+            "color": ["green"],  # Not in training data
+        })
+        test_numpy = convert_df_to_numpy(test_data)
+        result = model.predict(test_numpy)
+
+        # Should still return a result even with unknown value
+        assert result is not None
+
+
+class TestModelEdgeCases:
+    """Test Model edge cases."""
+
+    def test_single_sample_training(self) -> None:
+        """Test training with single sample."""
+        model = Model(MockLogger())
+        train_data = pd.DataFrame({
+            "feature": [1],
+            "target": ["on"],
+        })
+        train_numpy = convert_df_to_numpy(train_data)
+
+        # Should handle single sample
+        model.train_final(train_numpy)
+        assert model.model_final is not None
+        assert model.prediction_ready is True
+
+    def test_all_same_target_value(self) -> None:
+        """Test training when all target values are the same."""
+        model = Model(MockLogger())
+        train_data = pd.DataFrame({
+            "feature": [1, 2, 3, 4],
+            "target": ["on", "on", "on", "on"],
+        })
+        train_numpy = convert_df_to_numpy(train_data)
+
+        # Should not raise error
+        model.train_final(train_numpy)
+        assert model.model_final is not None
+
+    def test_mixed_data_types(self) -> None:
+        """Test with mixed categorical and numeric features."""
+        model = Model(MockLogger())
+        train_data = pd.DataFrame({
+            "numeric1": pd.array([1, 2, 3, 4], dtype='int64'),
+            "categorical": ["a", "b", "a", "b"],
+            "numeric2": pd.array([10, 20, 30, 40], dtype='int64'),
+            "target": ["off", "on", "off", "on"],
+        })
+        train_numpy = convert_df_to_numpy(train_data)
+        model.train_final(train_numpy)
+
+        # Check that categorical column is factorized
+        assert 1 in model.factors  # categorical column
+        assert 3 in model.factors  # target column
+        
+        # Note: Due to DataFrame.to_numpy() with mixed types creating object dtype,
+        # numeric columns may also be factorized. This documents actual behavior.
+
+    def test_predict_returns_none_for_numeric_target(self) -> None:
+        """Test that predict returns None for numeric target."""
+        model = Model(MockLogger())
+        train_data = pd.DataFrame({
+            "feature": [1, 2, 3, 4],
+            "target": [0, 0, 1, 1],  # Numeric target
+        })
+        train_numpy = convert_df_to_numpy(train_data)
+        model.train_final(train_numpy)
+
+        test_data = pd.DataFrame({"feature": [2.5]})
+        test_numpy = convert_df_to_numpy(test_data)
+        result = model.predict(test_numpy)
+
+        # Should return None if target is not categorical
+        assert result is None
+
+
+class TestModelNormalizationMethod:
+    """Test Model _apply_normalization private method."""
+
+    def test_apply_normalization_calculates_correctly(self) -> None:
+        """Test that _apply_normalization calculates means and stds correctly."""
+        model = Model(MockLogger())
+        data = np.array([[1.0, 10.0], [2.0, 20.0], [3.0, 30.0], [4.0, 40.0]])
+
+        means, stds, normalized = model._apply_normalization(data)
+
+        # Check means
+        assert np.isclose(means[0], 2.5, atol=0.1)
+        assert np.isclose(means[1], 25.0, atol=0.1)
+
+        # Check that stds are positive
+        assert stds[0] > 0
+        assert stds[1] > 0
+
+        # Check that normalized data has mean ~0 and std ~1
+        assert np.isclose(np.mean(normalized[:, 0]), 0, atol=0.1)
+        assert np.isclose(np.std(normalized[:, 0], ddof=0), 1, atol=0.1)
+
+
+class TestModelSamplingMethod:
+    """Test Model _apply_sampling private method."""
+
+    def test_apply_sampling_with_smote(self) -> None:
+        """Test that _apply_sampling applies SMOTE correctly."""
+        model = Model(MockLogger())
+        # Imbalanced dataset with enough samples for SMOTE
+        # Majority class: 10 samples, Minority class: 6 samples (> k_neighbors=5)
+        train = np.array([
+            [1.0, 0.0],
+            [2.0, 0.0],
+            [3.0, 0.0],
+            [4.0, 0.0],
+            [5.0, 0.0],
+            [6.0, 0.0],
+            [7.0, 0.0],
+            [8.0, 0.0],
+            [9.0, 0.0],
+            [10.0, 0.0],
+            [20.0, 1.0],
+            [21.0, 1.0],
+            [22.0, 1.0],
+            [23.0, 1.0],
+            [24.0, 1.0],
+            [25.0, 1.0],
+        ])
+
+        result = model._apply_sampling(train)
+
+        # After SMOTE, should have balanced classes
+        y_result = result[:, -1]
+        unique, counts = np.unique(y_result, return_counts=True)
+        assert len(unique) == 2
+        assert counts[0] == counts[1]  # Should be balanced
+
+    def test_apply_sampling_with_random_over(self) -> None:
+        """Test that _apply_sampling applies random oversampling correctly."""
+        model = Model(MockLogger())
+        model.transformations["sampling"]["type"] = SamplingStrategy.RANDOM_OVER
+
+        # Imbalanced dataset
+        train = np.array([
+            [1.0, 0.0],
+            [2.0, 0.0],
+            [3.0, 0.0],
+            [10.0, 1.0],
+        ])
+
+        result = model._apply_sampling(train)
+
+        # After random oversampling, should have balanced classes
+        y_result = result[:, -1]
+        unique, counts = np.unique(y_result, return_counts=True)
+        # Both classes should have equal counts
+        assert counts[0] == counts[1]

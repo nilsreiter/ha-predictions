@@ -5,13 +5,10 @@ from types import NoneType
 import numpy as np
 
 
-# TODO: Add multi-class support
-# TODO: Add regularization
-# TODO: Add better convergence checks
-# TODO: Optimize performance with vectorized operations, but without introducing additional dependencies
-# TODO: Deal with missing data (gracefully handle NaNs)
-# TODO: Normalize/standardize features
-# TODO: Oversampling for imbalanced datasets
+# TODO: Add multi-class support  # noqa: FIX002, TD002, TD003
+# TODO: Add regularization # noqa: FIX002, TD002, TD003
+# TODO: Add better convergence checks # noqa: FIX002, TD002, TD003
+# TODO: Deal with missing data (gracefully handle NaNs) # noqa: FIX002, TD002, TD003
 class LogisticRegression:
     """Logistic Regression Classifier."""
 
@@ -51,9 +48,9 @@ class LogisticRegression:
 
         # gradient descent
         for _ in range(self.n_iters):
-            A = self._feed_forward(x)
-            self.losses.append(self._compute_loss(y, A))  # type: ignore
-            dz = A - y  # derivative of sigmoid and bce X.T*(A-y)
+            a = self._feed_forward(x)
+            self.losses.append(self._compute_loss(y, a))  # type: ignore[arg-type]
+            dz = a - y  # derivative of sigmoid and bce X.T*(A-y)
             # compute gradients
             dw = (1 / n_samples) * np.dot(x.T, dz)
             db = (1 / n_samples) * np.sum(dz)
@@ -71,7 +68,6 @@ class LogisticRegression:
             tuple: (predicted_classes, probabilities) or None
 
         """
-        # TODO: Fix issue "ValueError: shapes (1,5) and (2,) not aligned: 5 (dim 1) != 2 (dim 0)"
         if self.weights is not None:
             threshold = 0.5
             y_hat = np.dot(x, self.weights) + self.bias
