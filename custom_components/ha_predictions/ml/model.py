@@ -145,7 +145,6 @@ class Model:
 
         if "zscores" in self.transformations:
             (means, stds, x_train) = self._apply_normalization(x_train)
-            x_train = (x_train - means) / stds
             self.transformations["zscores"]["means"] = means
             self.transformations["zscores"]["stds"] = stds
 
