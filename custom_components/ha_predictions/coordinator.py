@@ -2,15 +2,18 @@
 
 from __future__ import annotations
 
+from collections import defaultdict
+from contextlib import contextmanager
+from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Optional
 from urllib.parse import urlparse
 
 import numpy as np
 import pandas as pd
-from homeassistant.components.sql.util import async_create_sessionmaker
 from homeassistant.helpers.recorder import get_instance
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
+from sqlalchemy import text
 from sqlalchemy.orm import Session, scoped_session, sessionmaker
 
 from .const import (
@@ -18,6 +21,7 @@ from .const import (
     CONF_TARGET_ENTITY,
     ENTITY_KEY_OPERATION_MODE,
     ENTITY_KEY_SAMPLING_STRATEGY,
+    LOGGER,
     MIN_DATASET_SIZE,
     MSG_DATASET_CHANGED,
     MSG_PREDICTION_MADE,
@@ -56,6 +60,7 @@ class HAPredictionUpdateCoordinator(DataUpdateCoordinator):
         self.operation_mode: OperationMode = OperationMode.TRAINING
         self.training_ready: bool = False
         self.current_prediction: tuple[str, float] | NoneType = None
+        self.hass.async_create_task(self._extract_initial_dataset_from_recorder())
 
     async def _async_update_data(self) -> Any:
         """Update data via library."""
@@ -353,7 +358,151 @@ class HAPredictionUpdateCoordinator(DataUpdateCoordinator):
         dburl = get_instance(self.hass).db_url
         self.logger.info("Extracting initial dataset from recorder database: %s", dburl)
 
-        sess = await async_create_sessionmaker(self.hass, dburl)
+        entities = [*self.config_entry.data[CONF_FEATURE_ENTITY]]
 
-        # _lambda_stmt = generate_lambda_stmt(rendered_query)
-        # result: Result = sess[0].execute(_lambda_stmt)
+        # Run in executor since database operations are blocking
+        def _extract():
+            # Get recorder instance
+            recorder = get_instance(self.hass)
+            extractor = HomeAssistantStateExtractor(recorder.get_session())
+
+            raw_data = extractor.extract_states(entities)
+            pivot_data = extractor.pivot_to_wide_format(raw_data, entities)
+            return (len(pivot_data), pd.DataFrame(pivot_data))
+
+        number_of_rows, array = await self.hass.async_add_executor_job(_extract)
+        self.logger.info("Extracted %d rows from recorder database.", number_of_rows)
+        self.dataset = array
+        self.dataset_size = self.dataset.shape[0]
+        self.training_ready = self.dataset_size >= MIN_DATASET_SIZE
+        for entity in self.entity_registry:
+            entity.notify(MSG_DATASET_CHANGED)
+
+
+class HomeAssistantStateExtractor:
+    """Extract and transform Home Assistant state data using existing scoped_session."""
+
+    def __init__(self, session: Session):
+        """
+        Initialize extractor with existing scoped_session from Home Assistant.
+
+        Args:
+            session: scoped_session instance from Home Assistant
+
+        """
+        self.session = session
+
+    @contextmanager
+    def session_scope(self):
+        """
+        Provide a transactional scope for database operations.
+
+        Usage:
+            with extractor.session_scope() as session:
+                result = session.execute(text(query), params)
+        """
+        session = self.session
+        try:
+            yield session
+            session.commit()
+        except Exception:
+            session.rollback()
+            raise
+        finally:
+            session.close()
+
+    def extract_states(
+        self,
+        entities: list[str],
+        limit: int | None = None,
+    ) -> list[tuple[float, str, str]]:
+        """
+        Extract state data from database.
+
+        Args:
+            entities: List of entity IDs to extract
+            limit: Optional limit on number of rows returned
+
+        Returns:
+            List of tuples: (timestamp, entity_id, state)
+
+        """
+
+        # Build query conditions
+        params = {"entities": tuple(entities)}
+
+        limit_clause = f"LIMIT {limit}" if limit else ""
+
+        query = text(f"""
+        SELECT
+            states.last_updated_ts,
+            states_meta.entity_id,
+            states.state
+        FROM states
+        INNER JOIN states_meta ON states.metadata_id = states_meta.metadata_id
+        WHERE states_meta.entity_id IN ({",".join(["'" + e + "'" for e in entities])})
+        ORDER BY states.last_updated_ts, states_meta.entity_id
+        {limit_clause}
+        """)
+
+        LOGGER.debug("Executing query: %s", query)
+
+        with self.session_scope() as session:
+            result = session.execute(query, params)
+            rows = [(row[0], row[1], row[2]) for row in result]
+
+        return rows
+
+    def pivot_to_wide_format(
+        self, rows: list[tuple[float, str, str]], entities: list[str]
+    ) -> list[dict]:
+        """
+        Convert long format data to wide/pivot format with forward fill.
+
+        Args:
+            rows: List of (timestamp, entity_id, state) tuples
+            entities: List of entity IDs
+
+        Returns:
+            List of dicts with timestamp + all entity states
+
+        """
+        if not rows:
+            return []
+
+        # Group states by timestamp
+        timestamp_data = defaultdict(dict)
+        for timestamp, entity_id, state in rows:
+            timestamp_data[timestamp][entity_id] = state
+
+        # Get sorted timestamps
+        all_timestamps = sorted(timestamp_data.keys())
+
+        # Track last known state for forward fill
+        last_state = {entity: None for entity in entities}
+
+        # Build pivot rows
+        pivot_rows = []
+        for timestamp in all_timestamps:
+            # Update last known states with new values
+            for entity in entities:
+                if entity in timestamp_data[timestamp]:
+                    last_state[entity] = timestamp_data[timestamp][entity]
+
+            # Create row with all current states
+            row = {}
+            row.update({entity: last_state[entity] for entity in entities})
+
+            # Only include row if at least one entity has data
+            if any(last_state[e] is not None for e in entities):
+                pivot_rows.append(row)
+
+        return pivot_rows
+
+    @staticmethod
+    def format_timestamp(ts: float) -> str:
+        """Convert Unix timestamp to readable format."""
+        try:
+            return datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M:%S")
+        except:
+            return str(ts)
