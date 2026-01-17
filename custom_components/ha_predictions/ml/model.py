@@ -21,11 +21,14 @@ class Model:
         self.target_column: str | None = None
         self.prediction_ready: bool = False
 
-    def predict(self, data: np.ndarray) -> tuple[str, float] | NoneType:
+    def predict(
+        self, data: np.ndarray, col_names: list[str] | None = None
+    ) -> tuple[str, float] | NoneType:
         """Make predictions and return original values.
         
         Args:
-            data: Numpy array of feature values (already encoded/factorized)
+            data: Numpy array of feature values (raw, not encoded)
+            col_names: List of column names corresponding to data columns
         
         Returns:
             Tuple of (predicted_label, probability) or None
@@ -33,8 +36,28 @@ class Model:
         if self.model_final is None:
             raise ModelNotTreainedError
 
+        # Apply factorization to features only using stored factors
+        data_encoded = data.copy()
+        
+        if col_names:
+            for col_idx, col_name in enumerate(col_names):
+                if col_name in self.factors and col_name != self.target_column:
+                    value = data[0, col_idx]
+                    categories = self.factors[col_name]
+                    
+                    # Find the index of the value in categories using numpy
+                    try:
+                        idx = np.where(categories == value)[0]
+                        if len(idx) > 0:
+                            data_encoded[0, col_idx] = idx[0]
+                        else:
+                            # Value not found in training data, use -1
+                            data_encoded[0, col_idx] = -1
+                    except (ValueError, TypeError):
+                        data_encoded[0, col_idx] = -1
+
         # Predict
-        predictions, probabilities = self.model_final.predict(data)
+        predictions, probabilities = self.model_final.predict(data_encoded)
 
         if (
             self.target_column in self.factors
@@ -54,23 +77,44 @@ class Model:
     def train_final(
         self,
         data: np.ndarray,
-        factors: dict[str, Any],
-        target_column: str,
+        col_names: list[str],
+        target_column: str | None = None,
     ) -> None:
         """Train the final model.
         
         Args:
-            data: Numpy array with features and target (already encoded/factorized)
-            factors: Dictionary mapping column names to their category mappings
-            target_column: Name of the target column
+            data: Numpy array with features and target (not encoded)
+            col_names: List of column names corresponding to data columns
+            target_column: Name of the target column (optional, defaults to last column)
         """
-        # Store factors and target column for decoding predictions
-        self.factors = factors
-        self.target_column = target_column
+        # Determine target column
+        if target_column is None:
+            self.target_column = col_names[-1]
+        else:
+            self.target_column = target_column
+
+        # Factorize categorical columns using numpy.unique
+        data_encoded = data.copy()
+        self.factors = {}
+        
+        for col_idx, col_name in enumerate(col_names):
+            column_data = data[:, col_idx]
+            
+            # Check if column contains non-numeric data
+            if column_data.dtype == object or not np.issubdtype(column_data.dtype, np.number):
+                # Use numpy.unique to get unique values and their indices
+                unique_values, inverse_indices = np.unique(column_data, return_inverse=True)
+                # Store the unique values for later decoding
+                self.factors[col_name] = unique_values
+                # Replace column with encoded indices
+                data_encoded[:, col_idx] = inverse_indices
+
+        # Convert to appropriate numeric type
+        data_encoded = data_encoded.astype(float)
 
         # Split features and target
-        x_train = data[:, :-1]
-        y_train = data[:, -1]
+        x_train = data_encoded[:, :-1]
+        y_train = data_encoded[:, -1]
 
         # Train model
         self.model_final = LogisticRegression()
@@ -79,19 +123,36 @@ class Model:
         self.logger.debug("Training ends, model: %s", str(self.model_final))
         self.prediction_ready = True
 
-    def train_eval(self, data: np.ndarray) -> NoneType:
+    def train_eval(self, data: np.ndarray, col_names: list[str]) -> NoneType:
         """Train and evaluate the model with train/test split.
         
         Args:
-            data: Numpy array with features and target (already encoded/factorized)
+            data: Numpy array with features and target (not encoded)
+            col_names: List of column names corresponding to data columns
         """
         self.logger.info("Starting training for evaluation with data: %s", str(data))
+
+        # Factorize categorical columns using numpy.unique
+        data_encoded = data.copy()
+        
+        for col_idx, col_name in enumerate(col_names):
+            column_data = data[:, col_idx]
+            
+            # Check if column contains non-numeric data
+            if column_data.dtype == object or not np.issubdtype(column_data.dtype, np.number):
+                # Use numpy.unique to get unique values and their indices
+                unique_values, inverse_indices = np.unique(column_data, return_inverse=True)
+                # Replace column with encoded indices
+                data_encoded[:, col_idx] = inverse_indices
+
+        # Convert to appropriate numeric type
+        data_encoded = data_encoded.astype(float)
 
         # train/test split in pure numpy with stratification
         rng = np.random.Generator(np.random.PCG64())
 
         # Get target column (last column)
-        y = data[:, -1]
+        y = data_encoded[:, -1]
         unique_classes = np.unique(y)
 
         train_indices = []
@@ -121,8 +182,8 @@ class Model:
         rng.shuffle(train_indices)
         rng.shuffle(test_indices)
 
-        train = data[train_indices, :]
-        test = data[test_indices, :]
+        train = data_encoded[train_indices, :]
+        test = data_encoded[test_indices, :]
         self.logger.debug("Data used for training: %s", str(train))
         self.logger.debug("Data used for testing: %s", str(test))
 
