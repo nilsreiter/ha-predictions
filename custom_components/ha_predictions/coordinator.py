@@ -4,19 +4,18 @@ from __future__ import annotations
 
 from collections import defaultdict
 from contextlib import contextmanager
-from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Optional
-from urllib.parse import urlparse
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pandas as pd
 from homeassistant.helpers.recorder import get_instance
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from sqlalchemy import text
-from sqlalchemy.orm import Session, scoped_session, sessionmaker
 
 from .const import (
+    CONF_ADDITIONAL_SETTINGS,
+    CONF_ADDITIONAL_SETTINGS_IMPORT_FROM_RECORDER,
     CONF_FEATURE_ENTITY,
     CONF_TARGET_ENTITY,
     ENTITY_KEY_OPERATION_MODE,
@@ -39,6 +38,8 @@ if TYPE_CHECKING:
     from types import NoneType
 
     from homeassistant.core import Event, EventStateChangedData
+    from sqlalchemy.orm import Session
+
     from .data import HAPredictionConfigEntry
     from .entity import HAPredictionEntity
 
@@ -60,7 +61,10 @@ class HAPredictionUpdateCoordinator(DataUpdateCoordinator):
         self.operation_mode: OperationMode = OperationMode.TRAINING
         self.training_ready: bool = False
         self.current_prediction: tuple[str, float] | NoneType = None
-        self.hass.async_create_task(self._extract_initial_dataset_from_recorder())
+        if self.config_entry.options.get(CONF_ADDITIONAL_SETTINGS, {}).get(
+            CONF_ADDITIONAL_SETTINGS_IMPORT_FROM_RECORDER, True
+        ):
+            self.hass.async_create_task(self._extract_initial_dataset_from_recorder())
 
     async def _async_update_data(self) -> Any:
         """Update data via library."""
@@ -375,7 +379,9 @@ class HAPredictionUpdateCoordinator(DataUpdateCoordinator):
             extractor = HomeAssistantStateExtractor(recorder.get_session())
 
             raw_data = extractor.extract_states(entities)
-            pivot_data = extractor.pivot_to_wide_format(raw_data, entities)
+            pivot_data = extractor.pivot_to_wide_format(
+                raw_data, entities, self.config_entry.data[CONF_TARGET_ENTITY]
+            )
             return (len(pivot_data), pd.DataFrame(pivot_data))
 
         # Extract data in executor
@@ -424,7 +430,7 @@ class HomeAssistantStateExtractor:
     def extract_states(
         self,
         entities: list[str],
-        limit: int | None = None,
+        limit: int = 5000,
     ) -> list[tuple]:
         """
         Extract state data from database.
@@ -461,7 +467,7 @@ class HomeAssistantStateExtractor:
             return [tuple(row) for row in result]
 
     def pivot_to_wide_format(
-        self, rows: list[tuple], entities: list[str]
+        self, rows: list[tuple], entities: list[str], target_entity: str
     ) -> list[dict]:
         """
         Convert long format data to wide/pivot format with forward fill.
@@ -469,6 +475,7 @@ class HomeAssistantStateExtractor:
         Args:
             rows: List of (timestamp, entity_id, state) tuples
             entities: List of entity IDs
+            target_entity: The target entity ID (must be present in all rows)
 
         Returns:
             List of dicts with timestamp + all entity states
@@ -500,8 +507,12 @@ class HomeAssistantStateExtractor:
             row = {}
             row.update({entity: last_state[entity] for entity in entities})
 
-            # Only include row if at least one entity has data
-            if any(last_state[e] is not None for e in entities):
+            # Filter weird rows
+            if last_state[target_entity] is None:
+                continue
+
+            # Keep rows that have 2 or fewer None values
+            if sum(last_state[e] is None for e in entities) <= 2:
                 pivot_rows.append(row)
 
         return pivot_rows

@@ -9,8 +9,11 @@ from homeassistant import config_entries
 from homeassistant.core import State, callback
 from homeassistant.helpers import selector
 from slugify import slugify
+from homeassistant.data_entry_flow import section
 
 from .const import (
+    CONF_ADDITIONAL_SETTINGS,
+    CONF_ADDITIONAL_SETTINGS_IMPORT_FROM_RECORDER,
     CONF_FEATURE_ENTITY,
     CONF_TARGET_ENTITY,
     DOMAIN,
@@ -95,6 +98,17 @@ class HAPredictionsFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                     ),
                     vol.Required(CONF_FEATURE_ENTITY): selector.EntitySelector(
                         selector.EntitySelectorConfig(multiple=True),
+                    ),
+                    vol.Optional(CONF_ADDITIONAL_SETTINGS): section(
+                        vol.Schema(
+                            {
+                                vol.Optional(
+                                    CONF_ADDITIONAL_SETTINGS_IMPORT_FROM_RECORDER,
+                                    default=True,
+                                ): bool,
+                            }
+                        ),
+                        {"collapsed": True},
                     ),
                 },
             ),

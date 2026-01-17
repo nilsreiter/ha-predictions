@@ -265,10 +265,8 @@ class Model:
 
         Args:
             data: Numpy array with feature data.
-            filter_nan: Whether to filter out NaN target rows.
             filter_unavailable: Whether to filter out 'Unavailable' target rows.
             filter_unknown: Whether to filter out 'unknown' target rows.
-            filter_all_features_invalid: Whether to filter rows with invalid features.
 
         Returns:
             Numpy array with filtered data.
@@ -287,31 +285,6 @@ class Model:
             data = data[data[:, -1] != "unknown"]
             data = data[data[:, -1] != "Unknown"]
 
-        # Remove rows with 'nan' in the target column
-        if filter_nan:
-            data = data[data[:, -1] != "nan"]
-
-        # Remove rows with None in the target column
-        if filter_null:
-            mask = data[:, -1] != None  # noqa: E711
-            data = data[mask]
-            mask = notna(data[:, -1])
-            data = data[mask]
-
-        # Remove rows in which all features are invalid (NaN or non-numeric)
-        if filter_all_features_invalid:
-
-            def is_valid_row(row: np.ndarray) -> bool:
-                for value in row[:-1]:  # Exclude target column
-                    try:
-                        float_value = float(value)
-                        if not np.isnan(float_value):
-                            return True
-                    except (ValueError, TypeError):
-                        continue
-                return False
-
-            data = np.array([row for row in data if is_valid_row(row)])
         self.logger.debug("Number of instances after filtering: %i", data.shape[0])
         return data
 

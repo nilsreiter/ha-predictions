@@ -9,25 +9,37 @@
                 },
                 "data_description": {
                     "CONF_FEATURE_ENTITY": "What are good feature entities? Feature entities should have a strong correlation with the target entity you want to predict. For example, if you want to predict the state of a light based on motion sensors and time of day, you would select motion sensors and a time-based entity as feature entities. It may help to reduce the resolution of time-based entities by providing a template sensor that only contains the first digit of minutes (e.g., 10:15 becomes 10:1)."
+                },
+                "sections": {
+                    "CONF_ADDITIONAL_SETTINGS": {
+                        "name": "Additional Settings",
+                        "description": "Configure additional settings for HA Predictions.",
+                        "data": {
+                            "CONF_ADDITIONAL_SETTINGS_IMPORT_FROM_RECORDER": "Import initial training data from Home Assistant Recorder"
+                        },
+                        "data_description": {
+                            "CONF_ADDITIONAL_SETTINGS_IMPORT_FROM_RECORDER": "When enabled, HA Predictions will import historical data from the Home Assistant Recorder to initialize the training dataset. This can help improve prediction accuracy by leveraging existing data. It also gives you a head start on training without having to wait for new data to be collected."
+                        }
+                    }
                 }
+            },
+            "error": {
+                "unknown": "Unknown error occurred.",
+                "target_entity_not_found": "Target entity does not exist in your Home Assistant instance.",
+                "target_entity_wrong_domain": "Target entity must be a light, switch, or input_boolean.",
+                "feature_entity_not_found": "One or more feature entities do not exist in your Home Assistant instance."
+            },
+            "abort": {
+                "already_configured": "This entry is already configured."
             }
         },
-        "error": {
-            "unknown": "Unknown error occurred.",
-            "target_entity_not_found": "Target entity does not exist in your Home Assistant instance.",
-            "target_entity_wrong_domain": "Target entity must be a light, switch, or input_boolean.",
-            "feature_entity_not_found": "One or more feature entities do not exist in your Home Assistant instance."
-        },
-        "abort": {
-            "already_configured": "This entry is already configured."
-        }
-    },
-    "options": {
-        "step": {
-            "init": {
-                "description": "Update feature entities for prediction. Note: Changing feature entities will reset your training data.",
-                "data": {
-                    "CONF_FEATURE_ENTITY": "Feature Entities"
+        "options": {
+            "step": {
+                "init": {
+                    "description": "Update feature entities for prediction. Note: Changing feature entities will reset your training data.",
+                    "data": {
+                        "CONF_FEATURE_ENTITY": "Feature Entities"
+                    }
                 }
             }
         }
