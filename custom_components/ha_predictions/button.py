@@ -5,13 +5,13 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from homeassistant.components.button import ButtonEntity, ButtonEntityDescription
-from propcache.api import cached_property
 from slugify import slugify
 
 from custom_components.ha_predictions.const import (
-    ENTITY_SUFFIX_RUN_TRAINING,
-    ENTITY_SUFFIX_STORE_INSTANCE,
+    ENTITY_KEY_RUN_TRAINING,
+    ENTITY_KEY_STORE_INSTANCE,
     MSG_DATASET_CHANGED,
+    UNDERSCORE,
 )
 
 from .entity import HAPredictionEntity
@@ -35,7 +35,7 @@ async def async_setup_entry(
             RunTrainingButton(
                 coordinator=entry.runtime_data.coordinator,
                 entity_description=ButtonEntityDescription(
-                    key="run_training",
+                    key=ENTITY_KEY_RUN_TRAINING,
                     name="Run Training",
                     icon="mdi:cog-play",
                 ),
@@ -43,7 +43,7 @@ async def async_setup_entry(
             StoreInstanceButton(
                 coordinator=entry.runtime_data.coordinator,
                 entity_description=ButtonEntityDescription(
-                    key="store_instance",
+                    key=ENTITY_KEY_STORE_INSTANCE,
                     name="Store Instance",
                     icon="mdi:table-plus",
                 ),
@@ -65,7 +65,8 @@ class StoreInstanceButton(HAPredictionEntity, ButtonEntity):
         self.entity_description = entity_description
         self._attr_unique_id = slugify(
             self.coordinator.config_entry.runtime_data.target_entity_name
-            + ENTITY_SUFFIX_STORE_INSTANCE
+            + UNDERSCORE
+            + ENTITY_KEY_STORE_INSTANCE
         )
 
     async def async_press(self) -> None:
@@ -87,7 +88,8 @@ class RunTrainingButton(HAPredictionEntity, ButtonEntity):
 
         self._attr_unique_id = slugify(
             self.coordinator.config_entry.runtime_data.target_entity_name
-            + ENTITY_SUFFIX_RUN_TRAINING
+            + UNDERSCORE
+            + ENTITY_KEY_RUN_TRAINING
         )
 
     async def async_press(self) -> None:

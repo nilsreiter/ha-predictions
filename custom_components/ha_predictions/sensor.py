@@ -9,13 +9,14 @@ from homeassistant.components.sensor import SensorEntity, SensorEntityDescriptio
 from .const import (
     CONF_FEATURE_ENTITY,
     CONF_TARGET_ENTITY,
-    ENTITY_SUFFIX_CURRENT_PREDICTION,
-    ENTITY_SUFFIX_DATASET_SIZE,
-    ENTITY_SUFFIX_PERFORMANCE,
+    ENTITY_KEY_CURRENT_PREDICTION,
+    ENTITY_KEY_DATASET_SIZE,
+    ENTITY_KEY_PERFORMANCE,
     MIN_DATASET_SIZE,
     MSG_DATASET_CHANGED,
     MSG_PREDICTION_MADE,
     MSG_TRAINING_DONE,
+    UNDERSCORE,
 )
 from .entity import HAPredictionEntity
 
@@ -40,7 +41,7 @@ async def async_setup_entry(
             PredictionPerformanceSensor(
                 coordinator=entry.runtime_data.coordinator,
                 entity_description=SensorEntityDescription(
-                    key="prediction_performance",
+                    key=ENTITY_KEY_PERFORMANCE,
                     name="Prediction Performance",
                     icon="mdi:percent-box-outline",
                     suggested_display_precision=1,
@@ -50,7 +51,7 @@ async def async_setup_entry(
             DatasetSensor(
                 coordinator=entry.runtime_data.coordinator,
                 entity_description=SensorEntityDescription(
-                    key="dataset_size",
+                    key=ENTITY_KEY_DATASET_SIZE,
                     name="Dataset size",
                     icon="mdi:database",
                     suggested_display_precision=0,
@@ -59,7 +60,7 @@ async def async_setup_entry(
             CurrentPredictionSensor(
                 coordinator=entry.runtime_data.coordinator,
                 entity_description=SensorEntityDescription(
-                    key="current_prediction",
+                    key=ENTITY_KEY_CURRENT_PREDICTION,
                     name="Current Prediction",
                     icon="mdi:lightbulb-on",
                 ),
@@ -80,7 +81,9 @@ class DatasetSensor(HAPredictionEntity, SensorEntity):
         super().__init__(coordinator)
         self.entity_description = entity_description
         self._attr_unique_id = (
-            self.coordinator.config_entry.entry_id + ENTITY_SUFFIX_DATASET_SIZE
+            self.coordinator.config_entry.entry_id
+            + UNDERSCORE
+            + ENTITY_KEY_DATASET_SIZE
         )
 
     @property
@@ -126,7 +129,9 @@ class CurrentPredictionSensor(HAPredictionEntity, SensorEntity):
         super().__init__(coordinator)
         self.entity_description = entity_description
         self._attr_unique_id = (
-            self.coordinator.config_entry.entry_id + ENTITY_SUFFIX_CURRENT_PREDICTION
+            self.coordinator.config_entry.entry_id
+            + UNDERSCORE
+            + ENTITY_KEY_CURRENT_PREDICTION
         )
 
     @property
@@ -176,9 +181,8 @@ class PredictionPerformanceSensor(HAPredictionEntity, SensorEntity):
         super().__init__(coordinator)
         self.entity_description = entity_description
         self._attr_unique_id = (
-            self.coordinator.config_entry.entry_id + ENTITY_SUFFIX_PERFORMANCE
+            self.coordinator.config_entry.entry_id + UNDERSCORE + ENTITY_KEY_PERFORMANCE
         )
-        coordinator.register(self)
 
     @property
     def native_value(self) -> float | None:

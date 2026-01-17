@@ -6,8 +6,10 @@ from typing import Any
 
 import numpy as np
 
+from .const import SamplingStrategy
 from .exceptions import ModelNotTrainedError
 from .logistic_regression import LogisticRegression
+from .sampling import random_oversample, smote
 
 
 class Model:
@@ -22,7 +24,10 @@ class Model:
         self.model_final: LogisticRegression | None = None
         self.target_column_idx: int | None = None
         self.prediction_ready: bool = False
-        self.transformations = {"zscores": {}}
+        self.transformations: dict[str, dict[str, Any]] = {
+            "zscores": {},
+            "sampling": {"type": SamplingStrategy.SMOTE, "k_neighbors": 5},
+        }
 
     def predict(self, data: np.ndarray) -> tuple[str, float] | NoneType:
         """
@@ -139,14 +144,7 @@ class Model:
         y_train = data_encoded[:, -1]
 
         if "zscores" in self.transformations:
-            # Apply z-score normalization
-            self.logger.debug("Applying z-score normalization")
-            means = np.mean(x_train, axis=0)
-            stds = np.std(x_train, axis=0, ddof=0)
-
-            # Avoid division by zero
-            stds[stds == 0] = 1.0
-
+            (means, stds, x_train) = self._apply_normalization(x_train)
             x_train = (x_train - means) / stds
             self.transformations["zscores"]["means"] = means
             self.transformations["zscores"]["stds"] = stds
@@ -227,6 +225,8 @@ class Model:
         self.logger.debug("Data used for training: %s", str(train))
         self.logger.debug("Data used for testing: %s", str(test))
 
+        train = self._apply_sampling(train)
+
         # Split x and y
         x_train = train[:, :-1]
         y_train = train[:, -1]
@@ -234,15 +234,7 @@ class Model:
         y_test = test[:, -1]
 
         if "zscores" in self.transformations:
-            # Apply z-score normalization
-            self.logger.debug("Applying z-score normalization")
-            means = np.mean(x_train, axis=0)
-            stds = np.std(x_train, axis=0, ddof=0)
-
-            # Avoid division by zero
-            stds[stds == 0] = 1.0
-
-            x_train = (x_train - means) / stds
+            (means, stds, x_train) = self._apply_normalization(x_train)
             x_test = (x_test - means) / stds
 
         self.model_eval = LogisticRegression()
@@ -250,3 +242,64 @@ class Model:
         self.model_eval.fit(x_train, y_train)
         self.logger.debug("Training ends, model: %s", str(self.model_eval))
         self.accuracy = self.model_eval.score(x_test, y_test)
+
+    def _apply_normalization(
+        self, data: np.ndarray
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """
+        Apply z-score normalization to data.
+
+        Args:
+            data: Numpy array with feature data.
+
+        Returns:
+            Tuple of (means, stds, normalized_data).
+
+        """
+        self.logger.debug("Applying z-score normalization")
+        means = np.mean(data, axis=0)
+        stds = np.std(data, axis=0, ddof=0)
+
+        # Avoid division by zero
+        stds[stds == 0] = 1e-10
+
+        data = (data - means) / stds
+        return (means, stds, data)
+
+    def _apply_sampling(self, train: np.ndarray) -> np.ndarray:
+        """
+        Apply sampling strategy to training data.
+
+        Args:
+            train: Numpy array with training data (features + target).
+
+        Returns:
+            Numpy array with resampled training data.
+
+        """
+        if "sampling" in self.transformations:
+            if self.transformations["sampling"]["type"] == SamplingStrategy.SMOTE:
+                # Apply SMOTE to training data
+                self.logger.debug("Applying SMOTE to training data")
+                x_train_smote, y_train_smote = smote(
+                    train[:, :-1],
+                    train[:, -1],
+                    k_neighbors=self.transformations["sampling"].get("k_neighbors", 5),
+                )
+                train = np.hstack((x_train_smote, y_train_smote.reshape(-1, 1)))
+                self.logger.debug("Training data after SMOTE: %s", np.info(train))
+            elif (
+                self.transformations["sampling"]["type"] == SamplingStrategy.RANDOM_OVER
+            ):
+                # Apply random oversampling to training data
+                self.logger.debug("Applying random oversampling to training data")
+                x_train_rand, y_train_rand = random_oversample(
+                    train[:, :-1],
+                    train[:, -1],
+                    target_class=None,
+                )
+                train = np.hstack((x_train_rand, y_train_rand.reshape(-1, 1)))
+                self.logger.debug(
+                    "Training data after random oversampling: %s", np.info(train)
+                )
+        return train

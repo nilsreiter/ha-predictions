@@ -8,7 +8,7 @@ from homeassistant.components.switch import SwitchEntity, SwitchEntityDescriptio
 from homeassistant.const import EntityCategory
 from slugify import slugify
 
-from custom_components.ha_predictions.const import ENTITY_SUFFIX_ZSCORES_SWITCH
+from custom_components.ha_predictions.const import ENTITY_KEY_ZSCORES_SWITCH
 
 from .entity import HAPredictionEntity
 
@@ -55,7 +55,7 @@ class ZScoreSwitch(HAPredictionEntity, SwitchEntity):
         self.entity_description = entity_description
         self._attr_unique_id = slugify(
             self.coordinator.config_entry.runtime_data.target_entity_name
-            + ENTITY_SUFFIX_ZSCORES_SWITCH
+            + ENTITY_KEY_ZSCORES_SWITCH
         )
 
     @property
