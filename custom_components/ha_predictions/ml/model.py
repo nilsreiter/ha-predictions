@@ -5,52 +5,73 @@ from types import NoneType
 from typing import Any
 
 import numpy as np
-import pandas as pd
 
+from .exceptions import ModelNotTreainedError
 from .logistic_regression import LogisticRegression
-
-
 class Model:
     """Class to manage the ML model instance."""
-
-    accuracy: float | NoneType = None
-    factors: dict[str, Any] = {}
-    model_eval: LogisticRegression | None = None
-    model_final: LogisticRegression | None = None
-    target_column: str | None = None
-    prediction_ready: bool = False
 
     def __init__(self, logger: Logger) -> None:
         """Initialize the Model class."""
         self.logger = logger
+        self.accuracy: float | NoneType = None
+        self.factors: dict[int, Any] = {}
+        self.model_eval: LogisticRegression | None = None
+        self.model_final: LogisticRegression | None = None
+        self.target_column_idx: int | None = None
+        self.prediction_ready: bool = False
 
-    def predict(self, data: pd.DataFrame) -> tuple[str, float] | NoneType:
-        """Make predictions and return original values."""
+    def predict(
+        self, data: np.ndarray
+    ) -> tuple[str, float] | NoneType:
+        """Make predictions and return original values.
+        
+        Args:
+            data: Numpy array of feature values (raw, not encoded)
+        
+        Returns:
+            Tuple of (predicted_label, probability) or None
+        """
         if self.model_final is None:
-            raise ValueError("Model not trained yet.")
+            raise ModelNotTreainedError
 
-        data_copy = data.copy()
-
-        # Apply factorization to features only
-        for col, categories in self.factors.items():
-            if col == self.target_column:
-                continue
-            if col in data_copy.columns:
-                category_to_code = {val: idx for idx, val in enumerate(categories)}
-                data_copy[col] = (
-                    data_copy[col].map(category_to_code).fillna(-1).astype(int)
-                )
+        # Apply factorization to features only using stored factors
+        # Create a new array with float dtype to avoid object dtype issues
+        data_encoded = np.empty(data.shape, dtype=float)
+        
+        for col_idx in range(data.shape[1]):
+            # Apply factorization if this column was factorized during training
+            if col_idx in self.factors:
+                value = data[0, col_idx]
+                categories = self.factors[col_idx]
+                
+                # Find the index of the value in categories using numpy
+                try:
+                    idx = np.where(categories == value)[0]
+                    if len(idx) > 0:
+                        data_encoded[0, col_idx] = float(idx[0])
+                    else:
+                        # Value not found in training data, use -1
+                        data_encoded[0, col_idx] = -1.0
+                except (ValueError, TypeError):
+                    data_encoded[0, col_idx] = -1.0
+            else:
+                # Copy numeric data as-is
+                try:
+                    data_encoded[0, col_idx] = float(data[0, col_idx])
+                except (ValueError, TypeError):
+                    data_encoded[0, col_idx] = 0.0
 
         # Predict
-        x_pred = data_copy.to_numpy()
-        predictions, probabilities = self.model_final.predict(x_pred)
+        predictions, probabilities = self.model_final.predict(data_encoded)
 
         if (
-            self.target_column in self.factors
+            self.target_column_idx is not None
+            and self.target_column_idx in self.factors
             and predictions is not None
             and probabilities is not None
-        ):  # Changed from prediction_codes to predictions
-            target_categories = self.factors[self.target_column]
+        ):
+            target_categories = self.factors[self.target_column_idx]
             label = target_categories[predictions[0]]
             # Sigmoid output represents P(class=1), adjust for class 0
             # If predicted class is 0, probability should be 1 - sigmoid_output
@@ -60,26 +81,42 @@ class Model:
             return (label, probability)
         return None
 
-    def train_final(self, data: pd.DataFrame, target_col: str | None = None) -> None:
-        """Train the final model."""
-        data_copy = data.copy()
+    def train_final(
+        self,
+        data: np.ndarray,
+    ) -> None:
+        """Train the final model.
+        
+        Args:
+            data: Numpy array with features and target (not encoded). 
+                  Last column is assumed to be the target column.
+        """
+        # Target column is the last column
+        self.target_column_idx = data.shape[1] - 1
 
-        # Determine target column
-        if target_col is None:
-            self.target_column = data_copy.columns.tolist()[-1]
-        else:
-            self.target_column = target_col
+        # Factorize categorical columns using numpy.unique
+        # Create a new array with float dtype to avoid object dtype issues
+        data_encoded = np.empty(data.shape, dtype=float)
+        self.factors = {}
+        
+        for col_idx in range(data.shape[1]):
+            column_data = data[:, col_idx]
+            
+            # Check if column contains non-numeric data
+            if column_data.dtype == object or not np.issubdtype(column_data.dtype, np.number):
+                # Use numpy.unique to get unique values and their indices
+                unique_values, inverse_indices = np.unique(column_data, return_inverse=True)
+                # Store the unique values for later decoding (keyed by column index)
+                self.factors[col_idx] = unique_values
+                # Replace column with encoded indices
+                data_encoded[:, col_idx] = inverse_indices.astype(float)
+            else:
+                # Copy numeric data as-is
+                data_encoded[:, col_idx] = column_data.astype(float)
 
-        # Factorize categorical columns
-        for col in data_copy.select_dtypes(include=["object"]).columns:
-            codes, uniques = pd.factorize(data_copy[col])
-            data_copy[col] = codes
-            self.factors[col] = uniques
-
-        # Convert to numpy
-        dfn = data_copy.to_numpy()
-        x_train = dfn[:, :-1]
-        y_train = dfn[:, -1]
+        # Split features and target
+        x_train = data_encoded[:, :-1]
+        y_train = data_encoded[:, -1]
 
         # Train model
         self.model_final = LogisticRegression()
@@ -88,21 +125,37 @@ class Model:
         self.logger.debug("Training ends, model: %s", str(self.model_final))
         self.prediction_ready = True
 
-    def train_eval(self, df: pd.DataFrame) -> NoneType:
-        """Train and evaluate the model with train/test split."""
-        self.logger.info("Starting training for evaluation with data: %s", str(df))
-        categories = {}
-        for col in df.select_dtypes(include=["object"]).columns:
-            codes, uniques = pd.factorize(df[col])
-            df[col] = codes
-            categories[col] = uniques
+    def train_eval(self, data: np.ndarray) -> NoneType:
+        """Train and evaluate the model with train/test split.
+        
+        Args:
+            data: Numpy array with features and target (not encoded).
+                  Last column is assumed to be the target column.
+        """
+        self.logger.info("Starting training for evaluation with data: %s", str(data))
+
+        # Factorize categorical columns using numpy.unique
+        # Create a new array with float dtype to avoid object dtype issues
+        data_encoded = np.empty(data.shape, dtype=float)
+        
+        for col_idx in range(data.shape[1]):
+            column_data = data[:, col_idx]
+            
+            # Check if column contains non-numeric data
+            if column_data.dtype == object or not np.issubdtype(column_data.dtype, np.number):
+                # Use numpy.unique to get unique values and their indices
+                unique_values, inverse_indices = np.unique(column_data, return_inverse=True)
+                # Replace column with encoded indices
+                data_encoded[:, col_idx] = inverse_indices.astype(float)
+            else:
+                # Copy numeric data as-is
+                data_encoded[:, col_idx] = column_data.astype(float)
 
         # train/test split in pure numpy with stratification
-        dfn = df.to_numpy()
         rng = np.random.Generator(np.random.PCG64())
 
         # Get target column (last column)
-        y = dfn[:, -1]
+        y = data_encoded[:, -1]
         unique_classes = np.unique(y)
 
         train_indices = []
@@ -132,8 +185,8 @@ class Model:
         rng.shuffle(train_indices)
         rng.shuffle(test_indices)
 
-        train = dfn[train_indices, :]
-        test = dfn[test_indices, :]
+        train = data_encoded[train_indices, :]
+        test = data_encoded[test_indices, :]
         self.logger.debug("Data used for training: %s", str(train))
         self.logger.debug("Data used for testing: %s", str(test))
 

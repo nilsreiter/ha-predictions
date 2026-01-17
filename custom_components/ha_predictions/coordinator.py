@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+import numpy as np
 import pandas as pd
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
@@ -153,7 +154,11 @@ class HAPredictionUpdateCoordinator(DataUpdateCoordinator):
             data=[self._get_states_for_entities(include_target=False)],
         )
         self.logger.debug("Instance data for prediction: %s", str(instance_data))
-        return self.model.predict(instance_data)
+        
+        # Convert to numpy array
+        instance_array = instance_data.to_numpy()
+        
+        return self.model.predict(instance_array)
 
     def _initialize_dataframe(self) -> NoneType:
         """Initialize empty dataframe for dataset."""
@@ -233,15 +238,18 @@ class HAPredictionUpdateCoordinator(DataUpdateCoordinator):
             )
             return
 
+        # Convert DataFrame to numpy array
+        data_numpy = self.dataset.copy().to_numpy()
+
         if self.operation_mode == OP_MODE_TRAIN:
             await self.hass.async_add_executor_job(
-                self.model.train_eval, self.dataset.copy()
+                self.model.train_eval, data_numpy
             )
             self.accuracy = self.model.accuracy
             self.logger.info("Training complete, accuracy: %f", self.accuracy)
         elif self.operation_mode == OP_MODE_PROD:
             await self.hass.async_add_executor_job(
-                self.model.train_final, self.dataset.copy()
+                self.model.train_final, data_numpy
             )
         else:
             self.logger.error("Unknown operation mode: %s", self.operation_mode)

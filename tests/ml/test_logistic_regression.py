@@ -14,7 +14,7 @@ ml_path = (
 )
 sys.path.insert(0, str(ml_path))
 
-from LogisticRegression import LogisticRegression  # noqa: E402
+from logistic_regression import LogisticRegression  # noqa: E402
 
 
 class TestLogisticRegressionInit:
