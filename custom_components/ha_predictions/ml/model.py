@@ -5,13 +5,9 @@ from types import NoneType
 from typing import Any
 
 import numpy as np
-import pandas as pd
 
 from .exceptions import ModelNotTreainedError
 from .logistic_regression import LogisticRegression
-
-
-# TODO: Model should only take numpy array as input. Conversion from pandas DataFrame should be done in coordinator.
 class Model:
     """Class to manage the ML model instance."""
 
@@ -25,32 +21,26 @@ class Model:
         self.target_column: str | None = None
         self.prediction_ready: bool = False
 
-    def predict(self, data: pd.DataFrame) -> tuple[str, float] | NoneType:
-        """Make predictions and return original values."""
+    def predict(self, data: np.ndarray) -> tuple[str, float] | NoneType:
+        """Make predictions and return original values.
+        
+        Args:
+            data: Numpy array of feature values (already encoded/factorized)
+        
+        Returns:
+            Tuple of (predicted_label, probability) or None
+        """
         if self.model_final is None:
             raise ModelNotTreainedError
 
-        data_copy = data.copy()
-
-        # Apply factorization to features only
-        for col, categories in self.factors.items():
-            if col == self.target_column:
-                continue
-            if col in data_copy.columns:
-                category_to_code = {val: idx for idx, val in enumerate(categories)}
-                data_copy[col] = (
-                    data_copy[col].map(category_to_code).fillna(-1).astype(int)
-                )
-
         # Predict
-        x_pred = data_copy.to_numpy()
-        predictions, probabilities = self.model_final.predict(x_pred)
+        predictions, probabilities = self.model_final.predict(data)
 
         if (
             self.target_column in self.factors
             and predictions is not None
             and probabilities is not None
-        ):  # Changed from prediction_codes to predictions
+        ):
             target_categories = self.factors[self.target_column]
             label = target_categories[predictions[0]]
             # Sigmoid output represents P(class=1), adjust for class 0
@@ -61,26 +51,26 @@ class Model:
             return (label, probability)
         return None
 
-    def train_final(self, data: pd.DataFrame, target_col: str | None = None) -> None:
-        """Train the final model."""
-        data_copy = data.copy()
+    def train_final(
+        self,
+        data: np.ndarray,
+        factors: dict[str, Any],
+        target_column: str,
+    ) -> None:
+        """Train the final model.
+        
+        Args:
+            data: Numpy array with features and target (already encoded/factorized)
+            factors: Dictionary mapping column names to their category mappings
+            target_column: Name of the target column
+        """
+        # Store factors and target column for decoding predictions
+        self.factors = factors
+        self.target_column = target_column
 
-        # Determine target column
-        if target_col is None:
-            self.target_column = data_copy.columns.tolist()[-1]
-        else:
-            self.target_column = target_col
-
-        # Factorize categorical columns
-        for col in data_copy.select_dtypes(include=["object"]).columns:
-            codes, uniques = pd.factorize(data_copy[col])
-            data_copy[col] = codes
-            self.factors[col] = uniques
-
-        # Convert to numpy
-        dfn = data_copy.to_numpy()
-        x_train = dfn[:, :-1]
-        y_train = dfn[:, -1]
+        # Split features and target
+        x_train = data[:, :-1]
+        y_train = data[:, -1]
 
         # Train model
         self.model_final = LogisticRegression()
@@ -89,21 +79,19 @@ class Model:
         self.logger.debug("Training ends, model: %s", str(self.model_final))
         self.prediction_ready = True
 
-    def train_eval(self, df: pd.DataFrame) -> NoneType:
-        """Train and evaluate the model with train/test split."""
-        self.logger.info("Starting training for evaluation with data: %s", str(df))
-        categories = {}
-        for col in df.select_dtypes(include=["object"]).columns:
-            codes, uniques = pd.factorize(df[col])
-            df[col] = codes
-            categories[col] = uniques
+    def train_eval(self, data: np.ndarray) -> NoneType:
+        """Train and evaluate the model with train/test split.
+        
+        Args:
+            data: Numpy array with features and target (already encoded/factorized)
+        """
+        self.logger.info("Starting training for evaluation with data: %s", str(data))
 
         # train/test split in pure numpy with stratification
-        dfn = df.to_numpy()
         rng = np.random.Generator(np.random.PCG64())
 
         # Get target column (last column)
-        y = dfn[:, -1]
+        y = data[:, -1]
         unique_classes = np.unique(y)
 
         train_indices = []
@@ -133,8 +121,8 @@ class Model:
         rng.shuffle(train_indices)
         rng.shuffle(test_indices)
 
-        train = dfn[train_indices, :]
-        test = dfn[test_indices, :]
+        train = data[train_indices, :]
+        test = data[test_indices, :]
         self.logger.debug("Data used for training: %s", str(train))
         self.logger.debug("Data used for testing: %s", str(test))
 

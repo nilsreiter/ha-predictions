@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+import numpy as np
 import pandas as pd
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
@@ -139,6 +140,54 @@ class HAPredictionUpdateCoordinator(DataUpdateCoordinator):
             for entity in self.entity_registry:
                 entity.notify(MSG_PREDICTION_MADE)
 
+    def _factorize_dataframe(
+        self, df: pd.DataFrame
+    ) -> tuple[np.ndarray, dict[str, Any]]:
+        """
+        Factorize categorical columns in a DataFrame and convert to numpy.
+        
+        Args:
+            df: DataFrame to factorize
+            
+        Returns:
+            Tuple of (numpy_array, factors_dict)
+        """
+        df_copy = df.copy()
+        factors: dict[str, Any] = {}
+        
+        # Factorize categorical columns
+        for col in df_copy.select_dtypes(include=["object"]).columns:
+            codes, uniques = pd.factorize(df_copy[col])
+            df_copy[col] = codes
+            factors[col] = uniques
+        
+        # Convert to numpy
+        return df_copy.to_numpy(), factors
+
+    def _encode_instance(self, instance_df: pd.DataFrame) -> np.ndarray:
+        """
+        Encode an instance using stored factors from the model.
+        
+        Args:
+            instance_df: DataFrame with a single instance to encode
+            
+        Returns:
+            Encoded numpy array
+        """
+        instance_copy = instance_df.copy()
+        
+        # Apply factorization to features only, using model's factors
+        for col, categories in self.model.factors.items():
+            if col == self.model.target_column:
+                continue
+            if col in instance_copy.columns:
+                category_to_code = {val: idx for idx, val in enumerate(categories)}
+                instance_copy[col] = (
+                    instance_copy[col].map(category_to_code).fillna(-1).astype(int)
+                )
+        
+        return instance_copy.to_numpy()
+
     def _compute_prediction(self) -> tuple[str, float] | None:
         """
         Compute prediction (blocking operations).
@@ -153,7 +202,10 @@ class HAPredictionUpdateCoordinator(DataUpdateCoordinator):
             data=[self._get_states_for_entities(include_target=False)],
         )
         self.logger.debug("Instance data for prediction: %s", str(instance_data))
-        return self.model.predict(instance_data)
+        
+        # Encode the instance using model's factors
+        encoded_instance = self._encode_instance(instance_data)
+        return self.model.predict(encoded_instance)
 
     def _initialize_dataframe(self) -> NoneType:
         """Initialize empty dataframe for dataset."""
@@ -233,15 +285,20 @@ class HAPredictionUpdateCoordinator(DataUpdateCoordinator):
             )
             return
 
+        # Factorize the dataset
+        data_numpy, factors = self._factorize_dataframe(self.dataset.copy())
+
         if self.operation_mode == OP_MODE_TRAIN:
             await self.hass.async_add_executor_job(
-                self.model.train_eval, self.dataset.copy()
+                self.model.train_eval, data_numpy
             )
             self.accuracy = self.model.accuracy
             self.logger.info("Training complete, accuracy: %f", self.accuracy)
         elif self.operation_mode == OP_MODE_PROD:
+            # Get target column name
+            target_column = self.dataset.columns.tolist()[-1]
             await self.hass.async_add_executor_job(
-                self.model.train_final, self.dataset.copy()
+                self.model.train_final, data_numpy, factors, target_column
             )
         else:
             self.logger.error("Unknown operation mode: %s", self.operation_mode)
