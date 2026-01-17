@@ -12,7 +12,10 @@ ml_path = (
 )
 sys.path.insert(0, str(ml_path))
 
-from sampling import random_oversample, smote  # noqa: E402
+from custom_components.ha_predictions.ml.sampling import (  # noqa: E402
+    random_oversample,
+    smote,
+)
 
 
 class TestRandomOversample:
@@ -39,10 +42,10 @@ class TestRandomOversample:
         x = np.array([[1, 2], [3, 4], [5, 6], [7, 8], [9, 10]])
         y = np.array([0, 0, 0, 1, 1])
 
-        x_resampled, y_resampled = random_oversample(x, y, target_class=1)
+        y_resampled = random_oversample(x, y, target_class=1)[1]
 
         # Class 1 should be oversampled to match class 0
-        unique, counts = np.unique(y_resampled, return_counts=True)
+        counts = np.unique(y_resampled, return_counts=True)[1]
         assert counts[0] == 3  # Class 0 unchanged
         assert counts[1] == 3  # Class 1 oversampled
 
@@ -58,7 +61,7 @@ class TestRandomOversample:
         assert x_resampled.shape[0] == 4
 
         # Class distribution should remain balanced
-        unique, counts = np.unique(y_resampled, return_counts=True)
+        counts = np.unique(y_resampled, return_counts=True)[1]
         assert counts[0] == counts[1] == 2
 
     def test_output_shapes(self) -> None:
@@ -78,7 +81,7 @@ class TestRandomOversample:
         x = np.array([[1, 2], [3, 4]])
         y = np.array([0, 1])
 
-        x_resampled, y_resampled = random_oversample(x, y)
+        y_resampled = random_oversample(x, y)[1]
 
         # Should remain balanced
         unique, counts = np.unique(y_resampled, return_counts=True)
@@ -90,10 +93,10 @@ class TestRandomOversample:
         x = np.array([[1, 2], [3, 4], [5, 6], [7, 8]])
         y = np.array([0, 0, 0, 1])
 
-        x_resampled, y_resampled = random_oversample(x, y)
+        y_resampled = random_oversample(x, y)[1]
 
         # Minority class should be oversampled
-        unique, counts = np.unique(y_resampled, return_counts=True)
+        counts = np.unique(y_resampled, return_counts=True)[1]
         assert counts[0] == 3
         assert counts[1] == 3
 
@@ -102,7 +105,7 @@ class TestRandomOversample:
         x = np.array([[1, 2], [3, 4], [5, 6], [7, 8], [9, 10], [11, 12]])
         y = np.array([0, 0, 0, 1, 1, 2])
 
-        x_resampled, y_resampled = random_oversample(x, y)
+        y_resampled = random_oversample(x, y)[1]
 
         # All classes should be balanced to majority class count
         unique, counts = np.unique(y_resampled, return_counts=True)
@@ -138,7 +141,7 @@ class TestRandomOversample:
         x = np.array([[1, 2], [3, 4], [5, 6]])
         y = np.array([0, 0, 1])
 
-        x_resampled, y_resampled = random_oversample(x, y)
+        x_resampled = random_oversample(x, y)[0]
 
         # All resampled features should exist in original data
         for sample in x_resampled:
@@ -175,10 +178,10 @@ class TestSMOTE:
         x = np.array([[1, 2], [2, 3], [3, 4], [10, 11], [11, 12]])
         y = np.array([0, 0, 0, 1, 1])
 
-        x_resampled, y_resampled = smote(x, y, target_class=1)
+        y_resampled = smote(x, y, target_class=1)[1]
 
         # Class 1 should be oversampled to match class 0
-        unique, counts = np.unique(y_resampled, return_counts=True)
+        counts = np.unique(y_resampled, return_counts=True)[1]
         assert counts[0] == 3  # Class 0 unchanged
         assert counts[1] == 3  # Class 1 oversampled
 
@@ -206,9 +209,9 @@ class TestSMOTE:
         y = np.array([0, 0, 0, 0, 0, 1, 1, 1, 1])
 
         # Should work with k_neighbors=3 (minority class has 4 samples)
-        x_resampled, y_resampled = smote(x, y, k_neighbors=3)
+        y_resampled = smote(x, y, k_neighbors=3)[1]
 
-        unique, counts = np.unique(y_resampled, return_counts=True)
+        counts = np.unique(y_resampled, return_counts=True)[1]
         assert counts[0] == 5
         assert counts[1] == 5
 
@@ -226,10 +229,10 @@ class TestSMOTE:
         y = np.array([0, 0, 0, 0, 0, 1, 1, 1])
 
         # k_neighbors=2, minority has 3 samples - should work
-        x_resampled, y_resampled = smote(x, y, k_neighbors=2)
+        y_resampled = smote(x, y, k_neighbors=2)[1]
 
         # Should oversample minority class
-        unique, counts = np.unique(y_resampled, return_counts=True)
+        counts = np.unique(y_resampled, return_counts=True)[1]
         assert counts[0] == 5
         assert counts[1] == 5
 
@@ -259,7 +262,7 @@ class TestSMOTE:
         x = np.array([[1, 2], [3, 4]])
         y = np.array([0, 1])
 
-        x_resampled, y_resampled = smote(x, y, k_neighbors=1)
+        y_resampled = smote(x, y, k_neighbors=1)[1]
 
         # Should remain balanced
         unique, counts = np.unique(y_resampled, return_counts=True)
@@ -282,7 +285,7 @@ class TestSMOTE:
         with pytest.raises(
             ValueError, match="Cannot apply SMOTE to class 1 with only 1 sample"
         ):
-            x_resampled, y_resampled = smote(x, y, k_neighbors=1)
+            smote(x, y, k_neighbors=1)
 
     def test_output_shapes(self) -> None:
         """
@@ -337,7 +340,7 @@ class TestSMOTE:
         )
         y = np.array([0, 0, 0, 1, 1, 2, 2])
 
-        x_resampled, y_resampled = smote(x, y)
+        y_resampled = smote(x, y)[1]
 
         # All classes should be balanced to majority class count
         unique, counts = np.unique(y_resampled, return_counts=True)
