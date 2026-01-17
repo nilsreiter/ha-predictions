@@ -5,9 +5,9 @@
     "@nilsreiter"
   ],
   "config_flow": true,
-  "documentation": "https://github.com/nilsreiter/ml",
+  "documentation": "https://github.com/nilsreiter/ha-predictions",
   "iot_class": "calculated",
-  "issue_tracker": "https://github.com/nilsreiter/ml/issues",
+  "issue_tracker": "https://github.com/nilsreiter/ha-predictions/issues",
   "loggers": [
     "custom_components.ha_predictions"
   ],
