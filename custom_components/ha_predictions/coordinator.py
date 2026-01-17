@@ -47,7 +47,7 @@ class HAPredictionUpdateCoordinator(DataUpdateCoordinator):
         # Initialize instance variables to avoid sharing between coordinator instances
         self.accuracy: float | NoneType = None
         self.entity_registry: list[HAPredictionEntity] = []
-        # TODO: Use only numpy array as dataset representation
+        # TODO: Use only numpy array as representation  # noqa: TD002, TD003, FIX002
         self.dataset: pd.DataFrame | NoneType = None
         self.dataset_size: int = 0
         self.model: Model = Model(self.logger)
@@ -272,7 +272,6 @@ class HAPredictionUpdateCoordinator(DataUpdateCoordinator):
             [e.notify(MSG_DATASET_CHANGED) for e in self.entity_registry]
 
     # TODO: handle possible IO errors
-    # TODO: storing on disk should happend regularly in the background
     def store_table(self, df: pd.DataFrame | NoneType) -> None:
         """Store dataset to file."""
         self.config_entry.runtime_data.datafile.parent.mkdir(
