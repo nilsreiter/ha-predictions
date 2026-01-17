@@ -7,10 +7,7 @@ import numpy as np
 
 # Add the ml directory to the path to avoid importing homeassistant dependencies
 ml_path = (
-    Path(__file__).parent.parent.parent
-    / "custom_components"
-    / "ha_predictions"
-    / "ml"
+    Path(__file__).parent.parent.parent / "custom_components" / "ha_predictions" / "ml"
 )
 sys.path.insert(0, str(ml_path))
 

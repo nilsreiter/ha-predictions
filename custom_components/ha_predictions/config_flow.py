@@ -7,9 +7,9 @@ from typing import TYPE_CHECKING, Any
 import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.core import State, callback
+from homeassistant.data_entry_flow import section
 from homeassistant.helpers import selector
 from slugify import slugify
-from homeassistant.data_entry_flow import section
 
 from .const import (
     CONF_ADDITIONAL_SETTINGS,

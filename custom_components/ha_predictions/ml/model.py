@@ -5,7 +5,6 @@ from types import NoneType
 from typing import Any
 
 import numpy as np
-from pandas import notna
 
 from .const import SamplingStrategy
 from .exceptions import ModelNotTrainedError

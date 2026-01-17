@@ -168,9 +168,7 @@ class TestCoordinatorIOErrorHandling:
         df.to_csv(datafile, index=False)
 
         # Mock pd.read_csv to raise ParserError
-        with patch(
-            "pandas.read_csv", side_effect=pd.errors.ParserError("Parse error")
-        ):
+        with patch("pandas.read_csv", side_effect=pd.errors.ParserError("Parse error")):
             # Simulate the read_table error handling
             if datafile.exists():
                 try:
@@ -271,4 +269,3 @@ class TestCoordinatorIOErrorHandling:
 
         # Verify no error was logged
         assert len(logger.exception_calls) == 0
-

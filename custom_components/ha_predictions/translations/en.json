@@ -32,14 +32,14 @@
             "abort": {
                 "already_configured": "This entry is already configured."
             }
-        },
-        "options": {
-            "step": {
-                "init": {
-                    "description": "Update feature entities for prediction. Note: Changing feature entities will reset your training data.",
-                    "data": {
-                        "CONF_FEATURE_ENTITY": "Feature Entities"
-                    }
+        }
+    },
+    "options": {
+        "step": {
+            "init": {
+                "description": "Update feature entities for prediction. Note: Changing feature entities will reset your training data.",
+                "data": {
+                    "CONF_FEATURE_ENTITY": "Feature Entities"
                 }
             }
         }

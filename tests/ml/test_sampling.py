@@ -285,7 +285,8 @@ class TestSMOTE:
             x_resampled, y_resampled = smote(x, y, k_neighbors=1)
 
     def test_output_shapes(self) -> None:
-        """Test that SMOTE output shapes are correct.
+        """
+        Test that SMOTE output shapes are correct.
 
         Note: Need at least 2 samples in minority class (k_neighbors=5 default
         requires 6, but we use the minimum viable case).
@@ -317,7 +318,8 @@ class TestSMOTE:
         assert counts[0] == counts[1] == 2
 
     def test_multiple_classes(self) -> None:
-        """Test SMOTE with more than two classes.
+        """
+        Test SMOTE with more than two classes.
 
         Note: Each minority class needs at least 2 samples for SMOTE to work.
         """
@@ -366,7 +368,8 @@ class TestSMOTE:
         assert np.all(y_resampled == 0)
 
     def test_preserves_original_samples(self) -> None:
-        """Test that SMOTE preserves all original samples.
+        """
+        Test that SMOTE preserves all original samples.
 
         Note: Need at least 2 samples in minority class for SMOTE to work.
         """
@@ -386,7 +389,8 @@ class TestSMOTE:
             assert found, f"Original sample {sample} not found in resampled data"
 
     def test_synthetic_samples_reasonable_range(self) -> None:
-        """Test that synthetic samples fall within reasonable range.
+        """
+        Test that synthetic samples fall within reasonable range.
 
         Note: Need at least 2 samples in minority class for SMOTE to work.
         """
