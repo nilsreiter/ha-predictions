@@ -361,7 +361,7 @@ class HAPredictionUpdateCoordinator(DataUpdateCoordinator):
         entities = [*self.config_entry.data[CONF_FEATURE_ENTITY]]
 
         # Run in executor since database operations are blocking
-        def _extract():
+        def _extract() -> tuple[int, pd.DataFrame]:
             # Get recorder instance
             recorder = get_instance(self.hass)
             extractor = HomeAssistantStateExtractor(recorder.get_session())
@@ -370,7 +370,9 @@ class HAPredictionUpdateCoordinator(DataUpdateCoordinator):
             pivot_data = extractor.pivot_to_wide_format(raw_data, entities)
             return (len(pivot_data), pd.DataFrame(pivot_data))
 
+        # Extract data in executor
         number_of_rows, array = await self.hass.async_add_executor_job(_extract)
+
         self.logger.info("Extracted %d rows from recorder database.", number_of_rows)
         self.dataset = array
         self.dataset_size = self.dataset.shape[0]
@@ -380,9 +382,9 @@ class HAPredictionUpdateCoordinator(DataUpdateCoordinator):
 
 
 class HomeAssistantStateExtractor:
-    """Extract and transform Home Assistant state data using existing scoped_session."""
+    """Extract and transform Home Assistant state data."""
 
-    def __init__(self, session: Session):
+    def __init__(self, session: Session) -> NoneType:
         """
         Initialize extractor with existing scoped_session from Home Assistant.
 
@@ -415,7 +417,7 @@ class HomeAssistantStateExtractor:
         self,
         entities: list[str],
         limit: int | None = None,
-    ) -> list[tuple[float, str, str]]:
+    ) -> list[tuple]:
         """
         Extract state data from database.
 
@@ -427,7 +429,6 @@ class HomeAssistantStateExtractor:
             List of tuples: (timestamp, entity_id, state)
 
         """
-
         # Build query conditions
         params = {"entities": tuple(entities)}
 
@@ -443,18 +444,16 @@ class HomeAssistantStateExtractor:
         WHERE states_meta.entity_id IN ({",".join(["'" + e + "'" for e in entities])})
         ORDER BY states.last_updated_ts, states_meta.entity_id
         {limit_clause}
-        """)
+        """)  # noqa: S608
 
         LOGGER.debug("Executing query: %s", query)
 
         with self.session_scope() as session:
             result = session.execute(query, params)
-            rows = [(row[0], row[1], row[2]) for row in result]
-
-        return rows
+            return [tuple(row) for row in result]
 
     def pivot_to_wide_format(
-        self, rows: list[tuple[float, str, str]], entities: list[str]
+        self, rows: list[tuple], entities: list[str]
     ) -> list[dict]:
         """
         Convert long format data to wide/pivot format with forward fill.
@@ -479,7 +478,7 @@ class HomeAssistantStateExtractor:
         all_timestamps = sorted(timestamp_data.keys())
 
         # Track last known state for forward fill
-        last_state = {entity: None for entity in entities}
+        last_state = dict.fromkeys(entities)
 
         # Build pivot rows
         pivot_rows = []
@@ -498,11 +497,3 @@ class HomeAssistantStateExtractor:
                 pivot_rows.append(row)
 
         return pivot_rows
-
-    @staticmethod
-    def format_timestamp(ts: float) -> str:
-        """Convert Unix timestamp to readable format."""
-        try:
-            return datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M:%S")
-        except:
-            return str(ts)
