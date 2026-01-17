@@ -17,8 +17,8 @@ from .const import (
     MIN_DATASET_SIZE,
     MSG_DATASET_CHANGED,
     MSG_PREDICTION_MADE,
-    MSG_TRAINING_SETTINGS_CHANGED,
     MSG_TRAINING_DONE,
+    MSG_TRAINING_SETTINGS_CHANGED,
     SAMPLING_NONE,
     SAMPLING_RANDOM,
     SAMPLING_SMOTE,
@@ -89,6 +89,12 @@ class HAPredictionUpdateCoordinator(DataUpdateCoordinator):
                 return SAMPLING_RANDOM
             if sampling_type == SamplingStrategy.SMOTE:
                 return SAMPLING_SMOTE
+            self.logger.warning(
+                "Unknown sampling strategy '%s', defaulting to '%s'",
+                sampling_type,
+                SAMPLING_NONE,
+            )
+            return SAMPLING_NONE
         return None
 
     def select_option(self, key: str, value: str) -> NoneType:

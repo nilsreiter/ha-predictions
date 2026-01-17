@@ -55,12 +55,17 @@ def smote(
     x: np.ndarray, y: np.ndarray, k_neighbors: int = 5, target_class: Any | None = None
 ) -> tuple[np.ndarray, np.ndarray]:
     """
-    SMOTE implementation in pure numpy. Creates synthetic samples by interpolating between minority samples.
+    Apply SMOTE to oversample minority class(es) to match majority class size.
 
-    x: features (n_samples, n_features)
-    y: labels (n_samples,)
-    k_neighbors: number of nearest neighbors to use
-    target_class: class to oversample (None = all minority classes)
+    Args:
+        x: features (n_samples, n_features)
+        y: labels (n_samples,)
+        k_neighbors: number of nearest neighbors to use for synthetic sample generation
+        target_class: class to oversample (None = all minority classes)
+
+    Returns:
+        Resampled features and labels as (x_resampled, y_resampled)
+
     """
     unique, counts = np.unique(y, return_counts=True)
     max_count = counts.max()
@@ -75,7 +80,11 @@ def smote(
         cls_count = len(cls_indices)
         n_samples_needed = max_count - cls_count
 
-        if n_samples_needed > 0 and (target_class is None or cls == target_class):
+        if (
+            n_samples_needed > 0
+            and (target_class is None or cls == target_class)
+            and cls_count > k_neighbors
+        ):
             x_cls = x[cls_indices]
 
             # Generate synthetic samples
