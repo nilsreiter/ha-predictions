@@ -185,12 +185,16 @@ class TestSMOTE:
         assert counts[1] == 3  # Class 1 oversampled
 
     def test_k_neighbors_parameter(self) -> None:
-        """Test SMOTE with different k_neighbors values."""
+        """Test SMOTE with different k_neighbors values.
+        
+        Note: SMOTE requires at least (k_neighbors + 1) samples in the minority
+        class to work, since it needs k_neighbors after excluding the sample itself.
+        """
         # Need at least k_neighbors+1 samples in minority class for SMOTE to work
         x = np.array([[1, 2], [2, 3], [3, 4], [4, 5], [5, 6], [10, 11], [11, 12], [12, 13], [13, 14]])
         y = np.array([0, 0, 0, 0, 0, 1, 1, 1, 1])
 
-        # Should work with k_neighbors=3
+        # Should work with k_neighbors=3 (minority class has 4 samples)
         x_resampled, y_resampled = smote(x, y, k_neighbors=3)
 
         unique, counts = np.unique(y_resampled, return_counts=True)
@@ -198,12 +202,12 @@ class TestSMOTE:
         assert counts[1] == 5
 
     def test_k_neighbors_exceeds_minority_size(self) -> None:
-        """Test SMOTE when k_neighbors exceeds minority class size.
+        """Test SMOTE when k_neighbors is close to minority class size.
         
-        Note: Current implementation requires minority class to have at least
-        k_neighbors+1 samples. With fewer samples, it will fail.
+        Note: SMOTE requires at least (k_neighbors + 1) samples in the minority
+        class to work, since it needs k_neighbors after excluding the sample itself.
         """
-        # Minority class has 3 samples, k_neighbors=2 should work
+        # Minority class has 3 samples, k_neighbors=2 should work (needs 2+1=3)
         x = np.array([[1, 2], [2, 3], [3, 4], [4, 5], [5, 6], [10, 11], [11, 12], [12, 13]])
         y = np.array([0, 0, 0, 0, 0, 1, 1, 1])
 
@@ -250,9 +254,10 @@ class TestSMOTE:
     def test_single_sample_minority(self) -> None:
         """Test SMOTE with single sample in minority class.
         
-        Note: Current implementation requires at least 2 samples in minority class
-        for SMOTE to work (needs at least one neighbor). This test verifies the
-        limitation exists and would fail with the current implementation.
+        Note: SMOTE requires at least (k_neighbors + 1) samples in the minority
+        class to work properly. With the default k_neighbors=5, this means at least
+        6 samples. With a single sample, there are no neighbors available, so SMOTE
+        will fail with a ValueError.
         """
         import pytest
         
@@ -264,7 +269,11 @@ class TestSMOTE:
             x_resampled, y_resampled = smote(x, y, k_neighbors=1)
 
     def test_output_shapes(self) -> None:
-        """Test that SMOTE output shapes are correct."""
+        """Test that SMOTE output shapes are correct.
+        
+        Note: Need at least 2 samples in minority class (k_neighbors=5 default
+        requires 6, but we use the minimum viable case).
+        """
         # Need at least 2 samples in minority class
         x = np.array([[1, 2, 3], [2, 3, 4], [3, 4, 5], [10, 11, 12], [11, 12, 13]])
         y = np.array([0, 0, 0, 1, 1])
@@ -292,7 +301,10 @@ class TestSMOTE:
         assert counts[0] == counts[1] == 2
 
     def test_multiple_classes(self) -> None:
-        """Test SMOTE with more than two classes."""
+        """Test SMOTE with more than two classes.
+        
+        Note: Each minority class needs at least 2 samples for SMOTE to work.
+        """
         # Each minority class needs at least 2 samples
         x = np.array([
             [1, 2], [2, 3], [3, 4],      # Class 0 (3 samples)
@@ -332,7 +344,10 @@ class TestSMOTE:
         assert np.all(y_resampled == 0)
 
     def test_preserves_original_samples(self) -> None:
-        """Test that SMOTE preserves all original samples."""
+        """Test that SMOTE preserves all original samples.
+        
+        Note: Need at least 2 samples in minority class for SMOTE to work.
+        """
         # Need at least 2 samples in minority class
         x = np.array([[1, 2], [2, 3], [3, 4], [10, 11], [11, 12]])
         y = np.array([0, 0, 0, 1, 1])
@@ -349,7 +364,10 @@ class TestSMOTE:
             assert found, f"Original sample {sample} not found in resampled data"
 
     def test_synthetic_samples_reasonable_range(self) -> None:
-        """Test that synthetic samples fall within reasonable range."""
+        """Test that synthetic samples fall within reasonable range.
+        
+        Note: Need at least 2 samples in minority class for SMOTE to work.
+        """
         # Need at least 2 samples in minority class
         x = np.array([[1, 1], [2, 2], [3, 3], [100, 100], [101, 101]])
         y = np.array([0, 0, 0, 1, 1])
