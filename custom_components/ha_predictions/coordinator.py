@@ -5,7 +5,6 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-import numpy as np
 import pandas as pd
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
@@ -24,6 +23,7 @@ from .ml.model import Model
 if TYPE_CHECKING:
     from types import NoneType
 
+    import numpy as np
     from homeassistant.core import Event, EventStateChangedData
 
     from .data import HAPredictionConfigEntry
@@ -151,16 +151,17 @@ class HAPredictionUpdateCoordinator(DataUpdateCoordinator):
             
         Returns:
             Tuple of (numpy_array, factors_dict)
+
         """
         df_copy = df.copy()
         factors: dict[str, Any] = {}
-        
+
         # Factorize categorical columns
         for col in df_copy.select_dtypes(include=["object"]).columns:
             codes, uniques = pd.factorize(df_copy[col])
             df_copy[col] = codes
             factors[col] = uniques
-        
+
         # Convert to numpy
         return df_copy.to_numpy(), factors
 
@@ -173,9 +174,10 @@ class HAPredictionUpdateCoordinator(DataUpdateCoordinator):
             
         Returns:
             Encoded numpy array
+
         """
         instance_copy = instance_df.copy()
-        
+
         # Apply factorization to features only, using model's factors
         for col, categories in self.model.factors.items():
             if col == self.model.target_column:
@@ -185,7 +187,7 @@ class HAPredictionUpdateCoordinator(DataUpdateCoordinator):
                 instance_copy[col] = (
                     instance_copy[col].map(category_to_code).fillna(-1).astype(int)
                 )
-        
+
         return instance_copy.to_numpy()
 
     def _compute_prediction(self) -> tuple[str, float] | None:
@@ -202,7 +204,7 @@ class HAPredictionUpdateCoordinator(DataUpdateCoordinator):
             data=[self._get_states_for_entities(include_target=False)],
         )
         self.logger.debug("Instance data for prediction: %s", str(instance_data))
-        
+
         # Encode the instance using model's factors
         encoded_instance = self._encode_instance(instance_data)
         return self.model.predict(encoded_instance)

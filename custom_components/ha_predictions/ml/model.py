@@ -8,6 +8,8 @@ import numpy as np
 
 from .exceptions import ModelNotTreainedError
 from .logistic_regression import LogisticRegression
+
+
 class Model:
     """Class to manage the ML model instance."""
 
@@ -22,13 +24,15 @@ class Model:
         self.prediction_ready: bool = False
 
     def predict(self, data: np.ndarray) -> tuple[str, float] | NoneType:
-        """Make predictions and return original values.
+        """
+        Make predictions and return original values.
         
         Args:
             data: Numpy array of feature values (already encoded/factorized)
         
         Returns:
             Tuple of (predicted_label, probability) or None
+
         """
         if self.model_final is None:
             raise ModelNotTreainedError
@@ -57,12 +61,14 @@ class Model:
         factors: dict[str, Any],
         target_column: str,
     ) -> None:
-        """Train the final model.
+        """
+        Train the final model.
         
         Args:
             data: Numpy array with features and target (already encoded/factorized)
             factors: Dictionary mapping column names to their category mappings
             target_column: Name of the target column
+
         """
         # Store factors and target column for decoding predictions
         self.factors = factors
@@ -80,10 +86,12 @@ class Model:
         self.prediction_ready = True
 
     def train_eval(self, data: np.ndarray) -> NoneType:
-        """Train and evaluate the model with train/test split.
+        """
+        Train and evaluate the model with train/test split.
         
         Args:
             data: Numpy array with features and target (already encoded/factorized)
+
         """
         self.logger.info("Starting training for evaluation with data: %s", str(data))
 
