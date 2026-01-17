@@ -5,6 +5,7 @@ from types import NoneType
 from typing import Any
 
 import numpy as np
+from pandas import notna
 
 from .const import SamplingStrategy
 from .exceptions import ModelNotTrainedError
@@ -171,6 +172,7 @@ class Model:
         self.logger.info("Starting training for evaluation with data: %s", str(data))
 
         filtered_arr = self._apply_filtering(data)
+        self.logger.debug("Filtered data: %s", str(filtered_arr))
 
         # Factorize categorical columns using numpy.unique
         # Create a new array with float dtype to avoid object dtype issues
@@ -252,15 +254,18 @@ class Model:
         self,
         data: np.ndarray,
         *,
+        filter_all_features_invalid: bool = True,
+        filter_nan: bool = True,
+        filter_null: bool = True,
         filter_unavailable: bool = True,
         filter_unknown: bool = True,
-        filter_all_features_invalid: bool = True,
     ) -> np.ndarray:
         """
         Apply filtering to data.
 
         Args:
             data: Numpy array with feature data.
+            filter_nan: Whether to filter out NaN target rows.
             filter_unavailable: Whether to filter out 'Unavailable' target rows.
             filter_unknown: Whether to filter out 'unknown' target rows.
             filter_all_features_invalid: Whether to filter rows with invalid features.
@@ -270,15 +275,28 @@ class Model:
 
         """
         # Placeholder for future filtering logic
-        self.logger.debug("Applying filtering")
+        self.logger.debug("Applying filters on %i instances", data.shape[0])
 
-        # Remove rows with 'Unavailable' in the target column (last column)
+        # Remove rows with 'unavailable' in the target column (last column)
         if filter_unavailable:
             data = data[data[:, -1] != "unavailable"]
+            data = data[data[:, -1] != "Unavailable"]
 
         # Remove rows with 'unknown' in the target column
         if filter_unknown:
             data = data[data[:, -1] != "unknown"]
+            data = data[data[:, -1] != "Unknown"]
+
+        # Remove rows with 'nan' in the target column
+        if filter_nan:
+            data = data[data[:, -1] != "nan"]
+
+        # Remove rows with None in the target column
+        if filter_null:
+            mask = data[:, -1] != None  # noqa: E711
+            data = data[mask]
+            mask = notna(data[:, -1])
+            data = data[mask]
 
         # Remove rows in which all features are invalid (NaN or non-numeric)
         if filter_all_features_invalid:
@@ -294,7 +312,7 @@ class Model:
                 return False
 
             data = np.array([row for row in data if is_valid_row(row)])
-
+        self.logger.debug("Number of instances after filtering: %i", data.shape[0])
         return data
 
     def _apply_normalization(

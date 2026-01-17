@@ -363,7 +363,10 @@ class HAPredictionUpdateCoordinator(DataUpdateCoordinator):
         dburl = get_instance(self.hass).db_url
         self.logger.info("Extracting initial dataset from recorder database: %s", dburl)
 
-        entities = [*self.config_entry.data[CONF_FEATURE_ENTITY]]
+        entities = [
+            *self.config_entry.data[CONF_FEATURE_ENTITY],
+            self.config_entry.data[CONF_TARGET_ENTITY],
+        ]
 
         # Run in executor since database operations are blocking
         def _extract() -> tuple[int, pd.DataFrame]:
