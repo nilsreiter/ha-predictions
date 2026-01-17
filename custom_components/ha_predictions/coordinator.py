@@ -263,22 +263,36 @@ class HAPredictionUpdateCoordinator(DataUpdateCoordinator):
             str(self.config_entry.runtime_data.datafile),
         )
         if Path.exists(self.config_entry.runtime_data.datafile):
-            self.dataset = pd.read_csv(
-                self.config_entry.runtime_data.datafile, header=0
-            )
-            self.dataset_size = self.dataset.shape[0]
-            [e.notify(MSG_DATASET_CHANGED) for e in self.entity_registry]
-
-    # TODO: handle possible IO errors  # noqa: FIX002, TD002, TD003
-    # TODO: storing on disk should happend in background # noqa: FIX002, TD002, TD003
+            try:
+                self.dataset = pd.read_csv(
+                    self.config_entry.runtime_data.datafile, header=0
+                )
+                self.dataset_size = self.dataset.shape[0]
+                [e.notify(MSG_DATASET_CHANGED) for e in self.entity_registry]
+            except (OSError, PermissionError):
+                self.logger.exception(
+                    "Failed to read dataset from file %s",
+                    str(self.config_entry.runtime_data.datafile),
+                )
+            except pd.errors.ParserError:
+                self.logger.exception(
+                    "Failed to parse CSV file %s",
+                    str(self.config_entry.runtime_data.datafile),
+                )
 
     def store_table(self, df: pd.DataFrame | NoneType) -> None:
         """Store dataset to file."""
-        self.config_entry.runtime_data.datafile.parent.mkdir(
-            parents=True, exist_ok=True
-        )
-        if df is not None:
-            df.to_csv(self.config_entry.runtime_data.datafile, index=False)
+        try:
+            self.config_entry.runtime_data.datafile.parent.mkdir(
+                parents=True, exist_ok=True
+            )
+            if df is not None:
+                df.to_csv(self.config_entry.runtime_data.datafile, index=False)
+        except (OSError, PermissionError):
+            self.logger.exception(
+                "Failed to store dataset to file %s",
+                str(self.config_entry.runtime_data.datafile),
+            )
 
     async def train(self) -> NoneType:
         """Run the training process."""
