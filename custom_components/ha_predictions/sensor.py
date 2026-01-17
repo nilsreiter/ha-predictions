@@ -8,6 +8,7 @@ from homeassistant.components.sensor import SensorEntity, SensorEntityDescriptio
 
 from .const import (
     CONF_FEATURE_ENTITY,
+    CONF_TARGET_ENTITY,
     ENTITY_SUFFIX_CURRENT_PREDICTION,
     ENTITY_SUFFIX_DATASET_SIZE,
     ENTITY_SUFFIX_PERFORMANCE,
@@ -141,6 +142,7 @@ class CurrentPredictionSensor(HAPredictionEntity, SensorEntity):
         """Return the state attributes of the sensor."""
         return {
             "probability": self.prediction_probability,
+            "target_entity": self.coordinator.config_entry.data.get(CONF_TARGET_ENTITY),
         }
 
     @property
