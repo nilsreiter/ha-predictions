@@ -14,6 +14,7 @@ class HAPredictionEntity(CoordinatorEntity[HAPredictionUpdateCoordinator]):
         """Initialize."""
         super().__init__(coordinator)
         self._attr_device_info = coordinator.config_entry.runtime_data.device_info
+        self.coordinator.register(self)
 
     def notify(self, msg: str) -> None:
         """Handle notifications from the coordinator."""

@@ -22,6 +22,7 @@ class Model:
         self.model_final: LogisticRegression | None = None
         self.target_column_idx: int | None = None
         self.prediction_ready: bool = False
+        self.transformations = {"zscores": {}}
 
     def predict(self, data: np.ndarray) -> tuple[str, float] | NoneType:
         """
@@ -66,6 +67,14 @@ class Model:
                     data_encoded[0, col_idx] = float(data[0, col_idx])
                 except (ValueError, TypeError):
                     data_encoded[0, col_idx] = 0.0
+
+        if "zscores" in self.transformations:
+            # Apply z-score normalization
+            self.logger.debug("Applying z-score normalization for prediction")
+            means = self.transformations["zscores"]["means"]
+            stds = self.transformations["zscores"]["stds"]
+
+            data_encoded = (data_encoded - means) / stds
 
         # Predict
         predictions, probabilities = self.model_final.predict(data_encoded)
@@ -129,6 +138,19 @@ class Model:
         x_train = data_encoded[:, :-1]
         y_train = data_encoded[:, -1]
 
+        if "zscores" in self.transformations:
+            # Apply z-score normalization
+            self.logger.debug("Applying z-score normalization")
+            means = np.mean(x_train, axis=0)
+            stds = np.std(x_train, axis=0, ddof=0)
+
+            # Avoid division by zero
+            stds[stds == 0] = 1.0
+
+            x_train = (x_train - means) / stds
+            self.transformations["zscores"]["means"] = means
+            self.transformations["zscores"]["stds"] = stds
+
         # Train model
         self.model_final = LogisticRegression()
         self.logger.debug("Training of final model begins")
@@ -159,9 +181,7 @@ class Model:
                 column_data.dtype, np.number
             ):
                 # Use numpy.unique to get unique values and their indices
-                unique_values, inverse_indices = np.unique(
-                    column_data, return_inverse=True
-                )
+                inverse_indices = np.unique(column_data, return_inverse=True)[1]
                 # Replace column with encoded indices
                 data_encoded[:, col_idx] = inverse_indices.astype(float)
             else:
@@ -212,6 +232,18 @@ class Model:
         y_train = train[:, -1]
         x_test = test[:, :-1]
         y_test = test[:, -1]
+
+        if "zscores" in self.transformations:
+            # Apply z-score normalization
+            self.logger.debug("Applying z-score normalization")
+            means = np.mean(x_train, axis=0)
+            stds = np.std(x_train, axis=0, ddof=0)
+
+            # Avoid division by zero
+            stds[stds == 0] = 1.0
+
+            x_train = (x_train - means) / stds
+            x_test = (x_test - means) / stds
 
         self.model_eval = LogisticRegression()
         self.logger.debug("Training begins")

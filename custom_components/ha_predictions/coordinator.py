@@ -15,10 +15,12 @@ from .const import (
     MIN_DATASET_SIZE,
     MSG_DATASET_CHANGED,
     MSG_PREDICTION_MADE,
+    MSG_TRAINING_SETTINGS_CHANGED,
     MSG_TRAINING_DONE,
     OP_MODE_PROD,
     OP_MODE_TRAIN,
 )
+from .ml.exceptions import ModelNotTrainedError
 from .ml.model import Model
 
 if TYPE_CHECKING:
@@ -59,6 +61,17 @@ class HAPredictionUpdateCoordinator(DataUpdateCoordinator):
     def remove_listeners(self) -> None:
         """Remove all listeners."""
         self.entity_registry.clear()
+
+    def set_zscores(self, *, value: bool) -> NoneType:
+        """En- or disable the use of zscores for training."""
+        if value and "zscores" not in self.model.transformations:
+            self.model.transformations["zscores"] = {}
+            [e.notify(MSG_TRAINING_SETTINGS_CHANGED) for e in self.entity_registry]
+            self.logger.info("Z-Score normalization enabled.")
+        elif not value and "zscores" in self.model.transformations:
+            self.model.transformations.pop("zscores", None)
+            [e.notify(MSG_TRAINING_SETTINGS_CHANGED) for e in self.entity_registry]
+            self.logger.info("Z-Score normalization disabled.")
 
     def set_operation_mode(self, mode: str) -> None:
         """Set the operation mode."""
@@ -146,19 +159,15 @@ class HAPredictionUpdateCoordinator(DataUpdateCoordinator):
 
         Runs in executor to avoid blocking event loop.
         """
-        if self.dataset is None:
+        try:
+            return self.model.predict(
+                np.array(self._get_states_for_entities(include_target=False)).reshape(
+                    1, -1
+                )
+            )
+        except ModelNotTrainedError as e:
+            self.logger.warning(e)
             return None
-
-        instance_data = pd.DataFrame(
-            columns=self.dataset.columns[:-1],
-            data=[self._get_states_for_entities(include_target=False)],
-        )
-        self.logger.debug("Instance data for prediction: %s", str(instance_data))
-        
-        # Convert to numpy array
-        instance_array = instance_data.to_numpy()
-        
-        return self.model.predict(instance_array)
 
     def _initialize_dataframe(self) -> NoneType:
         """Initialize empty dataframe for dataset."""
@@ -242,15 +251,11 @@ class HAPredictionUpdateCoordinator(DataUpdateCoordinator):
         data_numpy = self.dataset.copy().to_numpy()
 
         if self.operation_mode == OP_MODE_TRAIN:
-            await self.hass.async_add_executor_job(
-                self.model.train_eval, data_numpy
-            )
+            await self.hass.async_add_executor_job(self.model.train_eval, data_numpy)
             self.accuracy = self.model.accuracy
             self.logger.info("Training complete, accuracy: %f", self.accuracy)
         elif self.operation_mode == OP_MODE_PROD:
-            await self.hass.async_add_executor_job(
-                self.model.train_final, data_numpy
-            )
+            await self.hass.async_add_executor_job(self.model.train_final, data_numpy)
         else:
             self.logger.error("Unknown operation mode: %s", self.operation_mode)
             return

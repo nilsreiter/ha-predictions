@@ -82,7 +82,6 @@ class DatasetSensor(HAPredictionEntity, SensorEntity):
         self._attr_unique_id = (
             self.coordinator.config_entry.entry_id + ENTITY_SUFFIX_DATASET_SIZE
         )
-        coordinator.register(self)
 
     @property
     def native_value(self) -> float | None:
@@ -129,7 +128,6 @@ class CurrentPredictionSensor(HAPredictionEntity, SensorEntity):
         self._attr_unique_id = (
             self.coordinator.config_entry.entry_id + ENTITY_SUFFIX_CURRENT_PREDICTION
         )
-        coordinator.register(self)
 
     @property
     def native_value(self) -> str | None:

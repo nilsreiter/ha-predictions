@@ -84,7 +84,6 @@ class RunTrainingButton(HAPredictionEntity, ButtonEntity):
         """Initialize the button entity."""
         super().__init__(coordinator)
         self.entity_description = entity_description
-        coordinator.register(self)
 
         self._attr_unique_id = slugify(
             self.coordinator.config_entry.runtime_data.target_entity_name
