@@ -61,10 +61,11 @@ class Model:
             raise ValueError(msg)
 
         # Apply factorization to features only using stored factors
-        data_encoded = data.copy()
+        # Create a new array with float dtype to avoid object dtype issues
+        data_encoded = np.empty(data.shape, dtype=float)
         
         for col_idx in range(data.shape[1]):
-            # Skip the target column (we don't have target in prediction data)
+            # Apply factorization if this column was factorized during training
             if col_idx in self.factors:
                 value = data[0, col_idx]
                 categories = self.factors[col_idx]
@@ -73,12 +74,18 @@ class Model:
                 try:
                     idx = np.where(categories == value)[0]
                     if len(idx) > 0:
-                        data_encoded[0, col_idx] = idx[0]
+                        data_encoded[0, col_idx] = float(idx[0])
                     else:
                         # Value not found in training data, use -1
-                        data_encoded[0, col_idx] = -1
+                        data_encoded[0, col_idx] = -1.0
                 except (ValueError, TypeError):
-                    data_encoded[0, col_idx] = -1
+                    data_encoded[0, col_idx] = -1.0
+            else:
+                # Copy numeric data as-is
+                try:
+                    data_encoded[0, col_idx] = float(data[0, col_idx])
+                except (ValueError, TypeError):
+                    data_encoded[0, col_idx] = 0.0
 
         # Predict
         predictions, probabilities = self.model_final.predict(data_encoded)
@@ -114,7 +121,8 @@ class Model:
         self.target_column_idx = data.shape[1] - 1
 
         # Factorize categorical columns using numpy.unique
-        data_encoded = data.copy()
+        # Create a new array with float dtype to avoid object dtype issues
+        data_encoded = np.empty(data.shape, dtype=float)
         self.factors = {}
         
         for col_idx in range(data.shape[1]):
@@ -127,10 +135,10 @@ class Model:
                 # Store the unique values for later decoding (keyed by column index)
                 self.factors[col_idx] = unique_values
                 # Replace column with encoded indices
-                data_encoded[:, col_idx] = inverse_indices
-
-        # Convert to appropriate numeric type
-        data_encoded = data_encoded.astype(float)
+                data_encoded[:, col_idx] = inverse_indices.astype(float)
+            else:
+                # Copy numeric data as-is
+                data_encoded[:, col_idx] = column_data.astype(float)
 
         # Split features and target
         x_train = data_encoded[:, :-1]
