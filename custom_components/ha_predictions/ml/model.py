@@ -7,27 +7,28 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from .exceptions import ModelNotTreainedError
 from .logistic_regression import LogisticRegression
 
 
+# TODO: Model should only take numpy array as input. Conversion from pandas DataFrame should be done in coordinator.
 class Model:
     """Class to manage the ML model instance."""
-
-    accuracy: float | NoneType = None
-    factors: dict[str, Any] = {}
-    model_eval: LogisticRegression | None = None
-    model_final: LogisticRegression | None = None
-    target_column: str | None = None
-    prediction_ready: bool = False
 
     def __init__(self, logger: Logger) -> None:
         """Initialize the Model class."""
         self.logger = logger
+        self.accuracy: float | NoneType = None
+        self.factors: dict[str, Any] = {}
+        self.model_eval: LogisticRegression | None = None
+        self.model_final: LogisticRegression | None = None
+        self.target_column: str | None = None
+        self.prediction_ready: bool = False
 
     def predict(self, data: pd.DataFrame) -> tuple[str, float] | NoneType:
         """Make predictions and return original values."""
         if self.model_final is None:
-            raise ValueError("Model not trained yet.")
+            raise ModelNotTreainedError
 
         data_copy = data.copy()
 
