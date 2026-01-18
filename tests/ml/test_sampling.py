@@ -280,9 +280,7 @@ class TestSMOTE:
         y = np.array([0, 0, 0, 1])
 
         # This should raise an error with current implementation
-        with pytest.raises(
-            ValueError, match="Cannot apply SMOTE to class 1 with only 1 sample"
-        ):
+        with pytest.raises(ValueError, match="Not enough samples to perform SMOTE"):
             smote(x, y, k_neighbors=1)
 
     def test_output_shapes(self) -> None:
