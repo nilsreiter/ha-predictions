@@ -19,7 +19,7 @@ class Model:
     def __init__(self, logger: Logger) -> None:
         """Initialize the Model class."""
         self.logger = logger
-        self.scores: tuple[float, dict[str, dict[str, float]]] | NoneType = None
+        self.scores: tuple[float, dict[Any, dict[str, float]]] | NoneType = None
         self.factors: dict[int, Any] = {}
         self.model_eval: LogisticRegression | None = None
         self.model_final: LogisticRegression | None = None
