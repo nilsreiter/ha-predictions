@@ -6,8 +6,6 @@ from typing import TYPE_CHECKING, Any
 
 from homeassistant.components.sensor import SensorEntity, SensorEntityDescription
 
-from custom_components.ha_predictions import data
-
 from .const import (
     CONF_FEATURE_ENTITY,
     CONF_TARGET_ENTITY,

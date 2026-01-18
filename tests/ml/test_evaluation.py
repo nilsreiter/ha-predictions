@@ -12,8 +12,7 @@ ha_predictions_path = (
 )
 sys.path.insert(0, str(ha_predictions_path))
 
-from custom_components.ha_predictions.ml.const import MACRO_AVERAGE
-from ml.const import F_SCORE, PRECISION, RECALL  # noqa: E402
+from ml.const import F_SCORE, MACRO_AVERAGE, PRECISION, RECALL  # noqa: E402
 from ml.evaluation import accuracy, precision_recall_fscore  # noqa: E402
 
 

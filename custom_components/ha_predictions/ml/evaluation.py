@@ -1,7 +1,7 @@
 """Evaluation metrics for ML models."""
 
-from types import NoneType
 from typing import Any
+
 import numpy as np
 
 from .const import F_SCORE, MACRO_AVERAGE, PRECISION, RECALL
@@ -24,14 +24,12 @@ def accuracy(y_pred: np.ndarray, y_gold: np.ndarray) -> float:
 
     """
     if len(y_gold) == 0:
-        raise ValueError(
-            "Cannot compute accuracy on empty ground-truth labels (y_gold)."
-        )
+        msg = "Cannot compute accuracy on empty ground-truth labels (y_gold)."
+        raise ValueError(msg)
 
     if y_pred.shape != y_gold.shape:
-        raise ValueError(
-            "y_pred and y_gold must have the same shape to compute accuracy."
-        )
+        msg = "y_pred and y_gold must have the same shape to compute accuracy."
+        raise ValueError(msg)
     matches = (y_gold == y_pred).sum()
     total = len(y_gold)
     return matches / total
@@ -49,6 +47,8 @@ def precision_recall_fscore(
     Arguments:
         y_pred (np.ndarray): Predicted labels.
         y_gold (np.ndarray): True labels.
+        class_labels (list[str] | None): Optional list of class labels for
+            mapping class indices to string labels.
         beta (float): Beta value for F-score calculation.
             Default is 1.0, higher values represent more emphasis on recall.
 
