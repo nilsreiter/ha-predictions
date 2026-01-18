@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from homeassistant.components.sensor import SensorEntity, SensorEntityDescription
 
@@ -187,14 +187,14 @@ class PredictionPerformanceSensor(HAPredictionEntity, SensorEntity):
     @property
     def native_value(self) -> float | None:
         """Return the native value of the sensor."""
-        if self.coordinator.accuracy is not None:
-            return self.coordinator.accuracy * 100
+        if self.coordinator.scores is not None:
+            return self.coordinator.scores[0] * 100
         return None
 
     @property
     def available(self) -> bool:
         """Return True if accuracy data is available."""
-        return self.coordinator.accuracy is not None
+        return self.coordinator.scores is not None
 
     @property
     def should_poll(self) -> bool:
@@ -205,3 +205,17 @@ class PredictionPerformanceSensor(HAPredictionEntity, SensorEntity):
         """Handle notifications from the coordinator."""
         if msg is MSG_TRAINING_DONE:
             self.schedule_update_ha_state()
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return the state attributes of the sensor."""
+        if self.coordinator.scores is not None:
+            prf = self.coordinator.scores[1]
+            ret = {}
+            for outer_key in prf:
+                for inner_key in prf[outer_key]:
+                    ret_key = f"{outer_key}_{inner_key}"
+                    ret[ret_key] = prf[outer_key][inner_key]
+            ret["data"] = prf
+            return ret
+        return {}

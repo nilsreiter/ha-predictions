@@ -331,8 +331,8 @@ class TestModelTrainEval:
         model.train_eval(train_numpy)
 
         assert model.model_eval is not None
-        assert model.accuracy is not None
-        assert 0.0 <= model.accuracy <= 1.0
+        assert model.scores is not None
+        assert 0.0 <= model.scores[0] <= 1.0
 
     def test_train_eval_sets_accuracy(self) -> None:
         """Test that train_eval sets accuracy attribute."""
@@ -346,8 +346,8 @@ class TestModelTrainEval:
         train_numpy = convert_df_to_numpy(train_data)
         model.train_eval(train_numpy)
 
-        assert isinstance(model.accuracy, float)
-        assert 0.0 <= model.accuracy <= 1.0
+        assert isinstance(model.scores[0], float)
+        assert 0.0 <= model.scores[0] <= 1.0
 
     def test_train_eval_stratified_split(self) -> None:
         """Test that train_eval performs stratified split correctly."""
@@ -410,7 +410,7 @@ class TestModelTrainEvalFiltering:
 
         # Model should be trained
         assert model.model_eval is not None
-        assert model.accuracy is not None
+        assert model.scores is not None
 
         # The filtered data should only have 6 rows (8 - 2 unavailable)
         # We can verify this indirectly by checking that model was trained
@@ -433,7 +433,7 @@ class TestModelTrainEvalFiltering:
 
         # Model should be trained
         assert model.model_eval is not None
-        assert model.accuracy is not None
+        assert model.scores is not None
 
     def test_train_eval_filters_both_unavailable_and_unknown(self) -> None:
         """Test that train_eval filters both 'unavailable' and 'unknown'."""
@@ -463,7 +463,7 @@ class TestModelTrainEvalFiltering:
 
         # Model should be trained with only valid data
         assert model.model_eval is not None
-        assert model.accuracy is not None
+        assert model.scores is not None
 
     def test_train_eval_keeps_valid_target_values(self) -> None:
         """Test train_eval keeps valid values and filters unavailable/unknown."""
@@ -494,7 +494,7 @@ class TestModelTrainEvalFiltering:
 
         # Model should be trained
         assert model.model_eval is not None
-        assert model.accuracy is not None
+        assert model.scores is not None
 
     def test_train_eval_with_all_unavailable_raises_error(self) -> None:
         """Test train_eval with all unavailable values handles edge case."""
@@ -943,7 +943,7 @@ class TestModelMissingAndWeirdData:
         model.train_eval(train_numpy)
         assert model.model_eval is not None
         # Accuracy might be affected but should still be calculated
-        assert model.accuracy is not None
+        assert model.scores is not None
 
     def test_train_eval_with_inf_in_features(self) -> None:
         """Test train_eval handles inf values in features."""
@@ -962,7 +962,7 @@ class TestModelMissingAndWeirdData:
         model.train_eval(train_numpy)
         assert model.model_eval is not None
         # Accuracy might be affected but should still be calculated
-        assert model.accuracy is not None
+        assert model.scores is not None
 
     def test_train_final_with_unavailable_in_features(self) -> None:
         """Test train_final handles 'unavailable' in categorical features."""

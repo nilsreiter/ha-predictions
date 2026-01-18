@@ -32,6 +32,7 @@ from .const import (
     SAMPLING_SMOTE,
     OperationMode,
 )
+from .ml.const import F_SCORE, PRECISION, RECALL
 from .ml.exceptions import ModelNotTrainedError
 from .ml.model import Model, SamplingStrategy
 
@@ -55,7 +56,7 @@ class HAPredictionUpdateCoordinator(DataUpdateCoordinator):
         """Initialize the coordinator."""
         super().__init__(*args, **kwargs)
         # Initialize instance variables to avoid sharing between coordinator instances
-        self.accuracy: float | NoneType = None
+        self.scores: tuple[float, dict[Any, dict[str, float]]] | NoneType = None
         self.entity_registry: list[HAPredictionEntity] = []
         self.dataset: pd.DataFrame | NoneType = None
         self.dataset_size: int = 0
@@ -367,8 +368,20 @@ class HAPredictionUpdateCoordinator(DataUpdateCoordinator):
 
         if self.operation_mode == OperationMode.TRAINING:
             await self.hass.async_add_executor_job(self.model.train_eval, data_numpy)
-            self.accuracy = self.model.accuracy
-            self.logger.info("Training complete, accuracy: %f", self.accuracy)
+            if self.model.scores is not None:
+                self.scores = self.model.scores
+                self.logger.info(
+                    "Training complete, accuracy: %.02f",
+                    self.scores[0],
+                )
+                for cls in self.model.scores[1]:
+                    self.logger.debug(
+                        "Class %s: p=%f, r=%f, f=%f",
+                        cls,
+                        self.model.scores[1][cls][PRECISION],
+                        self.model.scores[1][cls][RECALL],
+                        self.model.scores[1][cls][F_SCORE],
+                    )
         elif self.operation_mode == OperationMode.PRODUCTION:
             await self.hass.async_add_executor_job(self.model.train_final, data_numpy)
         else:

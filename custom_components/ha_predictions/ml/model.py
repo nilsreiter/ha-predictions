@@ -7,6 +7,7 @@ from typing import Any
 import numpy as np
 
 from .const import SamplingStrategy
+from .evaluation import accuracy, precision_recall_fscore
 from .exceptions import ModelNotTrainedError
 from .logistic_regression import LogisticRegression
 from .sampling import random_oversample, smote
@@ -18,7 +19,7 @@ class Model:
     def __init__(self, logger: Logger) -> None:
         """Initialize the Model class."""
         self.logger = logger
-        self.accuracy: float | NoneType = None
+        self.scores: tuple[float, dict[Any, dict[str, float]]] | NoneType = None
         self.factors: dict[int, Any] = {}
         self.model_eval: LogisticRegression | None = None
         self.model_final: LogisticRegression | None = None
@@ -119,27 +120,7 @@ class Model:
 
         # Factorize categorical columns using numpy.unique
         # Create a new array with float dtype to avoid object dtype issues
-        data_encoded = np.empty(data.shape, dtype=float)
-        self.factors = {}
-
-        for col_idx in range(data.shape[1]):
-            column_data = data[:, col_idx]
-
-            # Check if column contains non-numeric data
-            if column_data.dtype == object or not np.issubdtype(
-                column_data.dtype, np.number
-            ):
-                # Use numpy.unique to get unique values and their indices
-                unique_values, inverse_indices = np.unique(
-                    column_data, return_inverse=True
-                )
-                # Store the unique values for later decoding (keyed by column index)
-                self.factors[col_idx] = unique_values
-                # Replace column with encoded indices
-                data_encoded[:, col_idx] = inverse_indices.astype(float)
-            else:
-                # Copy numeric data as-is
-                data_encoded[:, col_idx] = column_data.astype(float)
+        data_encoded, self.factors = self._factorize(data)
 
         data_encoded = self._apply_sampling(data_encoded)
 
@@ -175,26 +156,7 @@ class Model:
 
         # Factorize categorical columns using numpy.unique
         # Create a new array with float dtype to avoid object dtype issues
-        data_encoded = np.empty(filtered_arr.shape, dtype=float)
-
-        for col_idx in range(filtered_arr.shape[1]):
-            column_data = filtered_arr[:, col_idx]
-            self.logger.debug(
-                "Factorizing column %d, which has type %s",
-                col_idx,
-                str(column_data.dtype),
-            )
-            # Check if column contains non-numeric data
-            if column_data.dtype == object or not np.issubdtype(
-                column_data.dtype, np.number
-            ):
-                # Use numpy.unique to get unique values and their indices
-                inverse_indices = np.unique(column_data, return_inverse=True)[1]
-                # Replace column with encoded indices
-                data_encoded[:, col_idx] = inverse_indices.astype(float)
-            else:
-                # Copy numeric data as-is
-                data_encoded[:, col_idx] = column_data.astype(float)
+        data_encoded, factors = self._factorize(filtered_arr)
 
         # train/test split in pure numpy with stratification
         rng = np.random.Generator(np.random.PCG64())
@@ -251,7 +213,59 @@ class Model:
         self.logger.debug("Training begins")
         self.model_eval.fit(x_train, y_train)
         self.logger.debug("Training ends, model: %s", str(self.model_eval))
-        self.accuracy = self.model_eval.score(x_test, y_test)
+
+        y_pred = self.model_eval.predict(x_test)[0]
+        if y_pred is not None:
+            # Use the actual target column index (last column) to get class labels
+            target_col_idx = data_encoded.shape[1] - 1
+            class_labels = factors.get(target_col_idx)
+            self.scores = (
+                accuracy(y_pred, y_test),
+                precision_recall_fscore(
+                    y_pred,
+                    y_test,
+                    class_labels=class_labels,
+                ),
+            )
+            self.logger.debug(
+                "Evaluation results - Accuracy: %s",
+                str(self.scores[0]),
+            )
+        else:
+            self.scores = None
+
+    def _factorize(self, data: np.ndarray) -> tuple[np.ndarray, dict]:
+        """
+        Factorize categorical columns in data.
+
+        Args:
+            data: Numpy array with feature data.
+
+        Returns:
+            Tuple of (encoded_data, factors).
+
+        """
+        data_encoded = np.empty(data.shape, dtype=float)
+        factors = {}
+        for col_idx in range(data.shape[1]):
+            column_data = data[:, col_idx]
+
+            # Check if column contains non-numeric data
+            if column_data.dtype == object or not np.issubdtype(
+                column_data.dtype, np.number
+            ):
+                # Use numpy.unique to get unique values and their indices
+                unique_values, inverse_indices = np.unique(
+                    column_data, return_inverse=True
+                )
+                # Store the unique values for later decoding (keyed by column index)
+                factors[col_idx] = unique_values
+                # Replace column with encoded indices
+                data_encoded[:, col_idx] = inverse_indices.astype(float)
+            else:
+                # Copy numeric data as-is
+                data_encoded[:, col_idx] = column_data.astype(float)
+        return data_encoded, factors
 
     def _apply_filtering(
         self,

@@ -76,13 +76,6 @@ class LogisticRegression:
             return y_predicted_cls, y_predicted
         return (None, None)
 
-    def score(self, x: np.ndarray, y_gold: np.ndarray) -> float:
-        """Calculate accuracy of the model."""
-        y_pred_classes, _ = self.predict(x)
-        matches = (y_gold == y_pred_classes).sum()
-        total = len(y_gold)
-        return matches / total
-
     def __str__(self) -> str:
         """Generate string representation of the model."""
         return f"LogisticRegression(weights={self.weights},bias={self.bias})"
