@@ -122,7 +122,7 @@ class TestPrecisionRecallFscore:
         """Test that class labels are assigned correctly."""
         y_gold = np.array([0, 0, 1, 1])
         y_pred = np.array([0, 1, 1, 0])
-        class_labels = ["cat", "dog"]
+        class_labels = np.array(["cat", "dog"])
 
         scores = precision_recall_fscore(
             y_pred,
