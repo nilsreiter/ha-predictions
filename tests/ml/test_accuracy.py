@@ -16,7 +16,7 @@ from ml import accuracy  # noqa: E402
 
 
 class TestAccuracy:
-    """Test score method."""
+    """Test accuracy function."""
 
     def test_accuracy_perfect(self) -> None:
         """Test accuracy with perfect predictions."""
