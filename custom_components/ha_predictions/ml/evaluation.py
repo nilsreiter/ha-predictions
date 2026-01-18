@@ -1,5 +1,6 @@
 """Evaluation metrics for ML models."""
 
+from types import NoneType
 from typing import Any
 import numpy as np
 
@@ -37,7 +38,10 @@ def accuracy(y_pred: np.ndarray, y_gold: np.ndarray) -> float:
 
 
 def precision_recall_fscore(
-    y_pred: np.ndarray, y_gold: np.ndarray, beta: float = 1.0
+    y_pred: np.ndarray,
+    y_gold: np.ndarray,
+    class_labels: list[str] | NoneType = None,
+    beta: float = 1.0,
 ) -> dict[str, dict[str, float]]:
     """
     Calculate precision, recall and f-score of the model.
@@ -56,42 +60,41 @@ def precision_recall_fscore(
     classes = [0, 1]
     scores: dict[str, dict[Any, float]] = {PRECISION: {}, RECALL: {}, F_SCORE: {}}
     for cls in classes:
+        if class_labels is not None:
+            cls_label = class_labels[cls]
+        else:
+            cls_label = cls
+
         true_positives = ((y_pred == cls) & (y_gold == cls)).sum()
         predicted_positives = (y_pred == cls).sum()
         gold_positives = (y_gold == cls).sum()
 
         # Precision
         if predicted_positives == 0:
-            scores[PRECISION][cls] = 0.0
+            scores[PRECISION][cls_label] = 0.0
         else:
-            scores[PRECISION][cls] = true_positives / predicted_positives
+            scores[PRECISION][cls_label] = true_positives / predicted_positives
 
         # Recall
         if gold_positives == 0:
-            scores[RECALL][cls] = 0.0
+            scores[RECALL][cls_label] = 0.0
         else:
-            scores[RECALL][cls] = true_positives / gold_positives
+            scores[RECALL][cls_label] = true_positives / gold_positives
 
         # F1 Score
-        prec = scores[PRECISION][cls]
-        rec = scores[RECALL][cls]
+        prec = scores[PRECISION][cls_label]
+        rec = scores[RECALL][cls_label]
         if prec + rec == 0:
-            scores[F_SCORE][cls] = 0.0
+            scores[F_SCORE][cls_label] = 0.0
         else:
-            scores[F_SCORE][cls] = (
+            scores[F_SCORE][cls_label] = (
                 (1 + beta**2) * (prec * rec) / ((beta**2 * prec) + rec)
             )
 
-    scores[PRECISION][MACRO_AVERAGE] = sum(
-        scores[PRECISION][cls] for cls in classes
-    ) / len(classes)
+    scores[PRECISION][MACRO_AVERAGE] = sum(scores[PRECISION].values()) / len(classes)
 
-    scores[RECALL][MACRO_AVERAGE] = sum(scores[RECALL][cls] for cls in classes) / len(
-        classes
-    )
+    scores[RECALL][MACRO_AVERAGE] = sum(scores[RECALL].values()) / len(classes)
 
-    scores[F_SCORE][MACRO_AVERAGE] = sum(scores[F_SCORE][cls] for cls in classes) / len(
-        classes
-    )
+    scores[F_SCORE][MACRO_AVERAGE] = sum(scores[F_SCORE].values()) / len(classes)
 
     return scores

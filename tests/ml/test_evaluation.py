@@ -118,3 +118,25 @@ class TestPrecisionRecallFscore:
         assert np.isclose(scores[PRECISION][MACRO_AVERAGE], 0.92857143)
         assert scores[RECALL][MACRO_AVERAGE] == 0.75
         assert np.isclose(scores[F_SCORE][MACRO_AVERAGE], 0.79487179)
+
+    def test_assign_class_labels(self) -> None:
+        """Test that class labels are assigned correctly."""
+        y_gold = np.array([0, 0, 1, 1])
+        y_pred = np.array([0, 1, 1, 0])
+        class_labels = ["cat", "dog"]
+
+        scores = precision_recall_fscore(
+            y_pred,
+            y_gold,
+            class_labels=class_labels,
+        )
+
+        # Class 'cat'
+        assert scores[PRECISION]["cat"] == 0.5
+        assert scores[RECALL]["cat"] == 0.5
+        assert np.isclose(scores[F_SCORE]["cat"], 0.5)
+
+        # Class 'dog'
+        assert scores[PRECISION]["dog"] == 0.5
+        assert scores[RECALL]["dog"] == 0.5
+        assert np.isclose(scores[F_SCORE]["dog"], 0.5)
