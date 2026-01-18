@@ -19,7 +19,7 @@ class TestAccuracy:
     """Test score method."""
 
     def test_accuracy_perfect(self) -> None:
-        """Test score with perfect predictions."""
+        """Test accuracy with perfect predictions."""
         labels = np.array([0, 0, 0, 1])
 
         # Calculate expected accuracy
