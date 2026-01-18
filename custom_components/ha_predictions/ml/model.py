@@ -6,6 +6,8 @@ from typing import Any
 
 import numpy as np
 
+from custom_components.ha_predictions.ml import accuracy
+
 from .const import SamplingStrategy
 from .exceptions import ModelNotTrainedError
 from .logistic_regression import LogisticRegression
@@ -251,7 +253,10 @@ class Model:
         self.logger.debug("Training begins")
         self.model_eval.fit(x_train, y_train)
         self.logger.debug("Training ends, model: %s", str(self.model_eval))
-        self.accuracy = self.model_eval.accuracy(x_test, y_test)
+
+        y_pred = self.model_eval.predict(x_test)[0]
+        if y_pred is not None:
+            self.accuracy = accuracy(y_pred, y_test)
 
     def _apply_filtering(
         self,
