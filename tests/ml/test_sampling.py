@@ -6,13 +6,14 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-# Add the ml directory to the path to avoid importing homeassistant dependencies
-ml_path = (
-    Path(__file__).parent.parent.parent / "custom_components" / "ha_predictions" / "ml"
+# Add the ha_predictions directory to path to enable ml package imports
+# This avoids importing the parent package which has homeassistant dependencies
+ha_predictions_path = (
+    Path(__file__).parent.parent.parent / "custom_components" / "ha_predictions"
 )
-sys.path.insert(0, str(ml_path))
+sys.path.insert(0, str(ha_predictions_path))
 
-from sampling import random_oversample, smote  # noqa: E402
+from ml.sampling import random_oversample, smote  # noqa: E402
 
 
 class TestRandomOversample:

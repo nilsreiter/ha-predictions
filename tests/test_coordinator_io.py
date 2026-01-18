@@ -1,25 +1,16 @@
 """Tests for coordinator IO error handling."""
 
+import sys
+from pathlib import Path
 from unittest.mock import patch
 
 import pandas as pd
 
+# Add the tests directory to path to enable imports from test modules
+tests_path = Path(__file__).parent
+sys.path.insert(0, str(tests_path))
 
-class MockLogger:
-    """Simple mock logger for testing."""
-
-    def __init__(self) -> None:
-        """Initialize the mock logger."""
-        self.exception_calls = []
-        self.info_calls = []
-
-    def exception(self, msg, *args) -> None:
-        """Mock exception logging."""
-        self.exception_calls.append((msg, args))
-
-    def info(self, msg, *args) -> None:
-        """Mock info logging."""
-        self.info_calls.append((msg, args))
+from test_fixtures import MockLogger  # noqa: E402
 
 
 class TestCoordinatorIOErrorHandling:
