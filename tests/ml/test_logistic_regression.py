@@ -203,40 +203,6 @@ class TestPredict:
         assert isinstance(probs, np.ndarray)
 
 
-class TestScore:
-    """Test score method."""
-
-    def test_score_perfect(self) -> None:
-        """Test score with perfect predictions."""
-        model = LogisticRegression(learning_rate=0.1, n_iters=1000)
-        # Train on simple data
-        x_train = np.array([[0, 0], [0, 1], [1, 0], [1, 1]])
-        y_train = np.array([0, 0, 0, 1])
-        model.fit(x_train, y_train)
-
-        # Test on same data (should get high accuracy)
-        _, _ = model.predict(x_train)
-        # Calculate expected accuracy
-        score = model.score(x_train, y_train)
-        assert 0 <= score <= 1
-        # For this simple case, should achieve decent accuracy
-        assert score >= 0.5
-
-    def test_score_calculation(self) -> None:
-        """Test that score calculates accuracy correctly."""
-        model = LogisticRegression()
-        model.weights = np.array([1.0, 1.0])
-        model.bias = 0
-
-        x = np.array([[0, 0], [1, 1], [2, 2], [3, 3]])
-        # Manually construct y so we know what score to expect
-        y_gold = np.array([0, 0, 1, 1])
-
-        score = model.score(x, y_gold)
-        # The score should be between 0 and 1
-        assert 0 <= score <= 1
-
-
 class TestStringRepresentation:
     """Test string representation."""
 

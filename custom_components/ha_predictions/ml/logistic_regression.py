@@ -4,6 +4,8 @@ from types import NoneType
 
 import numpy as np
 
+from .const import F_SCORE, MACRO_AVERAGE, PRECISION, RECALL
+
 
 # TODO: Add multi-class support  # noqa: FIX002, TD002, TD003
 # TODO: Add regularization # noqa: FIX002, TD002, TD003
