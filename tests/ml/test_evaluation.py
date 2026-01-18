@@ -12,6 +12,7 @@ ha_predictions_path = (
 )
 sys.path.insert(0, str(ha_predictions_path))
 
+from custom_components.ha_predictions.ml.const import MACRO_AVERAGE
 from ml.const import F_SCORE, PRECISION, RECALL  # noqa: E402
 from ml.evaluation import accuracy, precision_recall_fscore  # noqa: E402
 
@@ -59,7 +60,6 @@ class TestPrecisionRecallFscore:
         y_pred = np.array([0, 0, 1, 1])
 
         scores = precision_recall_fscore(y_pred, y_gold)
-
         for metric in [PRECISION, RECALL, F_SCORE]:
             for cls in ["0", "1"]:
                 assert scores[metric][cls] == 1.0
@@ -97,3 +97,24 @@ class TestPrecisionRecallFscore:
         assert scores[PRECISION]["1"] == 0  # 0 TP / (0 TP + 0 FP) -> defined as 0
         assert scores[RECALL]["1"] == 0  # 0 TP / (0 TP + 2 FN)
         assert np.isclose(scores[F_SCORE]["1"], 0)  # F1 score
+
+    def test_macro_average_simple_example(self) -> None:
+        """Test macro average calculation with simple example."""
+        y_gold = np.array([0, 0, 1, 1, 1, 1, 1, 1])
+        y_pred = np.array([0, 1, 1, 0, 1, 1, 1, 1])
+
+        scores = precision_recall_fscore(y_pred, y_gold)
+
+        assert np.isclose(scores[PRECISION][MACRO_AVERAGE], 2 / 3)
+        assert np.isclose(scores[RECALL][MACRO_AVERAGE], 2 / 3)
+        assert np.isclose(scores[F_SCORE][MACRO_AVERAGE], 2 / 3)
+
+    def test_macro_average_skewed_example(self) -> None:
+        """Test macro average calculation with skewed example."""
+        y_gold = np.array([0, 0, 1, 1, 1, 1, 1, 1])
+        y_pred = np.array([0, 1, 1, 1, 1, 1, 1, 1])
+
+        scores = precision_recall_fscore(y_pred, y_gold)
+        assert np.isclose(scores[PRECISION][MACRO_AVERAGE], 0.92857143)
+        assert scores[RECALL][MACRO_AVERAGE] == 0.75
+        assert np.isclose(scores[F_SCORE][MACRO_AVERAGE], 0.79487179)

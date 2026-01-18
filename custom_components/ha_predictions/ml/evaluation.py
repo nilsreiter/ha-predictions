@@ -22,10 +22,14 @@ def accuracy(y_pred: np.ndarray, y_gold: np.ndarray) -> float:
 
     """
     if len(y_gold) == 0:
-        raise ValueError("Cannot compute accuracy on empty ground-truth labels (y_gold).")
+        raise ValueError(
+            "Cannot compute accuracy on empty ground-truth labels (y_gold)."
+        )
 
     if y_pred.shape != y_gold.shape:
-        raise ValueError("y_pred and y_gold must have the same shape to compute accuracy.")
+        raise ValueError(
+            "y_pred and y_gold must have the same shape to compute accuracy."
+        )
     matches = (y_gold == y_pred).sum()
     total = len(y_gold)
     return matches / total
@@ -76,6 +80,7 @@ def precision_recall_fscore(
             scores[F_SCORE][str(cls)] = (
                 (1 + beta**2) * (prec * rec) / ((beta**2 * prec) + rec)
             )
+
     scores[PRECISION][MACRO_AVERAGE] = sum(
         scores[PRECISION][str(cls)] for cls in classes
     ) / len(classes)
