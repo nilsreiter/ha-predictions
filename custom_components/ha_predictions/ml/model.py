@@ -20,6 +20,7 @@ class Model:
         """Initialize the Model class."""
         self.logger = logger
         self.accuracy: float | NoneType = None
+        self.prf: dict[str, dict[str, float]] | NoneType = None
         self.factors: dict[int, Any] = {}
         self.model_eval: LogisticRegression | None = None
         self.model_final: LogisticRegression | None = None
@@ -257,6 +258,9 @@ class Model:
         if y_pred is not None:
             self.accuracy = accuracy(y_pred, y_test)
             self.prf = precision_recall_fscore(y_pred, y_test)
+        else:
+            self.accuracy = None
+            self.prf = None
 
     def _apply_filtering(
         self,
