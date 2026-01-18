@@ -26,7 +26,7 @@ def precision_recall_fscore(
     y_pred: np.ndarray, y_gold: np.ndarray, beta: float = 1.0
 ) -> dict[str, dict[str, float]]:
     """
-    Calculate precision of the model.
+    Calculate precision, recall and f-score of the model.
 
     Arguments:
         y_pred (np.ndarray): Predicted labels.
